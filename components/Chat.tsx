@@ -32,6 +32,8 @@ import { authorOf, textOf, type AgentEvent } from "elan-sdk";
 
 import { Approvals } from "./Approvals";
 import { Markdown } from "./Markdown";
+import { Tools } from "./Tools";
+import { toolsIn } from "@/lib/tools";
 import { conversations } from "@/lib/sessions";
 
 /** Kinds that mean the agent is no longer mid-thought. */
@@ -111,6 +113,7 @@ function fold(events: readonly AgentEvent[]): Turn[] {
 export function Chat({ agent, sessionId }: { agent: string; sessionId: string }) {
   const { events, state, error } = useAgentEvents(sessionId);
   const [history, setHistory] = useState<AgentEvent[]>([]);
+  const [unavailable, setUnavailable] = useState("");
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState<{ id: string; said: string }[]>([]);
   const [draft, setDraft] = useState("");
@@ -125,6 +128,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     setHistory([]);
     setPending([]);
     setRefused("");
+    setUnavailable("");
     setLoading(true);
     void (async () => {
       try {
@@ -133,11 +137,19 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
         );
         if (!current) return;
         if (answer.ok) {
-          const body = (await answer.json()) as { events?: AgentEvent[] };
+          const body = (await answer.json()) as {
+            events?: AgentEvent[];
+            unavailable?: string;
+          };
           setHistory(body.events ?? []);
+          // SAID ONCE, AND NOT AS A FAILURE. A platform whose image predates
+          // `GET /v1/runs` cannot read history back, which is worth explaining
+          // rather than showing an empty transcript and letting somebody
+          // conclude their conversation was lost.
+          setUnavailable(body.unavailable ?? "");
         }
-        // A 404 here is a conversation with nothing recorded yet, which is the
-        // normal state of a new one. Not worth saying anything about.
+        // A 404 is this app's own ownership refusal, or a conversation with
+        // nothing recorded. Neither is worth a message.
       } finally {
         if (current) setLoading(false);
       }
@@ -147,10 +159,15 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     };
   }, [sessionId]);
 
+  // ONE ARRAY, MEMOISED. Three separate `[...history, ...events]` literals
+  // would each be a new reference on every render, which would make the tool
+  // fold and the pause lookup recompute for nothing.
+  const allEvents = useMemo(() => [...history, ...events], [history, events]);
+
   const turns = useMemo(() => {
     // HISTORY FIRST, then live. A run present in both folds into one turn,
     // because the fold keys on the invocation id rather than appending.
-    const folded = fold([...history, ...events]);
+    const folded = fold(allEvents);
     const known = new Set(folded.map((turn) => turn.invocationId));
     const echoes = pending
       .filter((item) => !known.has(item.id))
@@ -159,7 +176,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
         failure: "", status: "", ended: false,
       }));
     return [...folded, ...echoes];
-  }, [history, events, pending]);
+  }, [allEvents, pending]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
@@ -224,6 +241,12 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
               </div>
             )}
 
+            {/* WHAT IT DID, collapsed. Rendered after the reply because the
+                answer is the point and the tools are the evidence — and only
+                once the turn has settled, so the list does not grow under the
+                reader's eyes while the agent is still working. */}
+            {turn.ended && <Tools used={toolsIn(allEvents, turn.invocationId)} />}
+
             {/* LIVENESS, from the `typing` events. The label is the plugin's
                 own sentence; the dots are ours. */}
             {turn.status && !turn.ended && (
@@ -253,7 +276,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
             <Approvals
               sessionId={sessionId}
               invocationId={turn.invocationId}
-              events={[...history, ...events]}
+              events={allEvents}
               settled={turn.ended}
             />
           </article>
@@ -261,6 +284,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
         <div ref={bottom} />
       </div>
 
+      {unavailable && <p className="notice">{unavailable}</p>}
       {error && <p className="failed">socket: {error}</p>}
       {refused && <p className="failed">{refused}</p>}
 

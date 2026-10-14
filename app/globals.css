@@ -369,3 +369,79 @@ button.reject { background: transparent; color: var(--ink); border-color: var(--
   .rail { position: static; }
   .rail-list { grid-auto-flow: row; max-height: 11rem; overflow-y: auto; }
 }
+
+/* ── what the agent did ─────────────────────────────────────────────────── */
+
+.notice {
+  margin: .4rem 0 0;
+  font-size: .85rem;
+  color: var(--dim);
+  border-left: 3px solid var(--line);
+  padding-left: .6rem;
+}
+
+.tools-used {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ground);
+  font-size: .88rem;
+}
+
+.tools-used > summary {
+  padding: .4rem .6rem;
+  cursor: pointer;
+  color: var(--dim);
+  list-style: none;
+}
+
+/* The default marker sits oddly against the padding; a rotating caret of our
+   own keeps the open/closed state visible without it. */
+.tools-used > summary::-webkit-details-marker { display: none; }
+
+.tools-used > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: .4rem;
+  transition: transform .12s ease;
+}
+
+.tools-used[open] > summary::before { transform: rotate(90deg); }
+.tools-used > summary:hover { color: var(--ink); }
+.tools-verb { font-weight: 550; color: var(--ink); }
+.tools-pending { color: var(--warn-line); }
+
+.tools-detail {
+  margin: 0;
+  padding: 0 .6rem .6rem 1.7rem;
+  display: grid;
+  gap: .7rem;
+}
+
+.tools-detail > li { display: grid; gap: .25rem; }
+.tools-name { font-weight: 550; }
+.tools-pair { display: grid; gap: .1rem; }
+
+.tools-label {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--dim);
+}
+
+.tools-pair pre {
+  margin: 0;
+  padding: .4rem .5rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-x: auto;
+  max-height: 14rem;
+  overflow-y: auto;
+  font-size: .82rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tools-used > summary::before { transition: none; }
+}

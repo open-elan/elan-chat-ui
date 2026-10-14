@@ -32,7 +32,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { toReply, type AgentEvent } from "elan-sdk";
+import { NotFound, NotWired, toReply, type AgentEvent } from "elan-sdk";
 
 import { elan } from "@/lib/elan";
 import { failed } from "@/lib/failure";
@@ -86,6 +86,34 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ events });
   } catch (error) {
+    // ── A PLATFORM THAT CANNOT SERVE HISTORY IS NOT A FAILURE HERE ──────────
+    //
+    // `GET /v1/runs` arrived with the SDK (ADR-0110 gave it the project scope
+    // it needs), so a deployment whose image predates that answers 404 for a
+    // path it has never heard of — the route falls to deploy-service's
+    // catch-all, which is where it lives, and FastAPI has no handler. A
+    // deployment with no observability service answers 501.
+    //
+    // Neither should stop the chat working. They are reported ONCE, in words
+    // that name the fix, and the conversation carries on live — which is the
+    // only part that was ever available on a fresh session anyway.
+    if (error instanceof NotFound) {
+      return NextResponse.json({
+        events: [],
+        unavailable:
+          "this platform does not serve GET /v1/runs yet, so past " +
+          "conversations cannot be read back. Deploy the services that carry " +
+          "it and history appears; live replies work regardless.",
+      });
+    }
+    if (error instanceof NotWired) {
+      return NextResponse.json({
+        events: [],
+        unavailable:
+          "this deployment has no observability service, so nothing records " +
+          "what a run did. Live replies work regardless.",
+      });
+    }
     return failed("could not read the conversation", error);
   }
 }

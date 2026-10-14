@@ -126,6 +126,8 @@ point the app at somebody else's wallet.
    read, and the ownership check that has to happen before it.
 8. **[`lib/sessions.ts`](lib/sessions.ts)** — why the conversation list is
    **yours** and not the platform's.
+9. **[`lib/tools.ts`](lib/tools.ts)** — pairing a tool's call with its result,
+   and why the fold has no React in it.
 
 ---
 
@@ -160,7 +162,16 @@ in `localStorage`, and in a real app **that file is your database**.
 **What each conversation SAID comes back from the record**, through
 [`/api/history`](app/api/history/route.ts) — because nothing buffers a stream
 for a socket that was not open, so without it every chat but the active one
-would render empty. Two things about that route are the point:
+would render empty.
+
+> **`GET /v1/runs` is newer than some deployments.** It arrived with the SDK, so
+> a platform whose image predates that answers `404` for it and history cannot
+> be read back. The route reports that **once**, in words that name the fix, and
+> the chat carries on live — rather than showing an empty transcript and letting
+> somebody conclude their conversation was lost. A deployment with no
+> observability service answers `501` and is reported the same way.
+
+Two things about that route are the point:
 
 - **It checks ownership before it reads anything.** A session id is a guessable
   string and the service user can see every run in the project, so every run in
@@ -185,6 +196,21 @@ phrasing and a translation has somewhere to live. It deliberately emits no
 `idle` after the model returns, because `content`, `finished` and `error`
 already mean clear; the fold walks events in order for exactly that reason, so
 the indicator clears when the agent speaks and returns when it goes quiet.
+
+**A settled turn shows what the agent did.** `tool_call` and `tool_result`
+events carry ADK's own `function_call` / `function_response` parts, so
+[`lib/tools.ts`](lib/tools.ts) pairs them **on the call id and never on
+position** — one turn can raise several calls, they can return out of order, and
+a confirmed tool's result arrives on the far side of a pause. Collapsed into
+"Used search_invoices, fetch_pdf" with a `<details>`, because the answer is the
+point and the arguments are the evidence. A call with no result yet reads
+"still outstanding" rather than as a failure: a long-running tool is answered by
+a system, possibly days later.
+
+Verified against realistic events: results delivered out of order still land on
+the right call, an unanswered call is reported as outstanding, a result whose
+call is in another segment still appears, and another invocation's calls do not
+leak into the turn.
 
 **Replies render as markdown**, because a model writes it whether or not you
 render it: shown as plain text, a good answer arrives as `**Total:** £420` with
