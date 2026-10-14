@@ -28,9 +28,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentEvents } from "elan-sdk/react";
+import { LoaderCircle, SendHorizontal } from "lucide-react";
 import { authorOf, textOf, type AgentEvent } from "elan-sdk";
 
 import { Approvals } from "./Approvals";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { Markdown } from "./Markdown";
 import { Tools } from "./Tools";
 import { toolsIn } from "@/lib/tools";
@@ -147,9 +149,22 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
           // rather than showing an empty transcript and letting somebody
           // conclude their conversation was lost.
           setUnavailable(body.unavailable ?? "");
+        } else if (answer.status === 404) {
+          // NOT SILENCE, WHICH IS WHAT THIS USED TO BE — and the reason the
+          // sidebar looked like it could not fetch anything. The list lives in
+          // `localStorage` and SURVIVES A CHANGE OF IDENTITY, so a chat started
+          // under a different `DEMO_USER_ID` is correctly refused and then
+          // rendered as an empty transcript with nothing said about it.
+          //
+          // The route answers the same way for "nothing recorded" and "not
+          // yours", on purpose, so this names both rather than guessing.
+          setUnavailable(
+            "nothing readable for this conversation under the current " +
+              "identity. Either nothing was recorded for it yet, or it was " +
+              "started under a different end user — the list is kept in this " +
+              "browser and outlives a change of DEMO_USER_ID.",
+          );
         }
-        // A 404 is this app's own ownership refusal, or a conversation with
-        // nothing recorded. Neither is worth a message.
       } finally {
         if (current) setLoading(false);
       }
@@ -167,7 +182,13 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
   const turns = useMemo(() => {
     // HISTORY FIRST, then live. A run present in both folds into one turn,
     // because the fold keys on the invocation id rather than appending.
-    const folded = fold(allEvents);
+    // `queued` makes the turn exist before `started` gives it words, so the
+    // echo lends its text to that turn rather than vanishing the moment the
+    // run is known — otherwise the message disappears for the whole cold start.
+    const echoed = new Map(pending.map((item) => [item.id, item.said]));
+    const folded = fold(allEvents).map((turn) =>
+      turn.said ? turn : { ...turn, said: echoed.get(turn.invocationId) ?? "" },
+    );
     const known = new Set(folded.map((turn) => turn.invocationId));
     const echoes = pending
       .filter((item) => !known.has(item.id))
@@ -219,7 +240,13 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     <div className="chat">
       <header className="chat-head">
         <span className="agent">{agent}</span>
-        <span className={`state state-${state}`}>{state}</span>
+        <div className="chat-tools">
+          <span className={`state state-${state}`}>
+            <i aria-hidden="true" />
+            {state}
+          </span>
+          <ThemeSwitch />
+        </div>
       </header>
 
       <div className="transcript">
@@ -264,10 +291,19 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
                 agent has no pod to send one. Only while nothing else has
                 happened — otherwise it lingers under a finished turn. */}
             {!turn.status && !turn.replied && !turn.failure && !turn.ended && (
-              <p className="waiting">
-                queued — a sleeping agent is scheduled and started before it
-                reads its queue, so the first reply after a quiet period is the
-                slow one.
+              <p className="waiting" aria-live="polite">
+                <span className="typing">
+                  <span className="dots" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  Queued
+                </span>
+                <span className="waiting-why">
+                  A sleeping agent is scheduled and started before it reads its
+                  queue, so the first reply after a quiet period is the slow one.
+                </span>
               </p>
             )}
 
@@ -302,8 +338,22 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
           disabled={!ready || sending}
           aria-label="Message"
         />
-        <button type="submit" disabled={!ready || sending || !draft.trim()}>
-          {sending ? "sending…" : "Send"}
+        {/* AN ICON, AND STILL A NAMED CONTROL: the label is what a screen
+            reader announces and what the tooltip shows. While the request is
+            in flight the arrow becomes a spinner, so the button cannot look
+            ready to send twice. */}
+        <button
+          type="submit"
+          className="send"
+          disabled={!ready || sending || !draft.trim()}
+          aria-label={sending ? "Sending" : "Send"}
+          title={sending ? "Sending" : "Send"}
+        >
+          {sending ? (
+            <LoaderCircle className="spin" size={18} aria-hidden="true" />
+          ) : (
+            <SendHorizontal size={18} aria-hidden="true" />
+          )}
         </button>
       </form>
     </div>

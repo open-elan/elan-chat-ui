@@ -62,7 +62,15 @@ export async function GET(request: Request) {
     // not merely that it is left out of the response.
     const stranger = page.runs.find((run) => run.user_id !== mine);
     if (stranger) {
-      return NextResponse.json({ error: "no such conversation" }, { status: 404 });
+      // NON-CONFIRMING, DELIBERATELY. "Not yours" and "does not exist" answer
+      // the same way, which is how the platform's own routes behave — saying
+      // "that is somebody else's" would confirm a guessed session id exists.
+      // The UI turns this into the two things worth checking without being
+      // told which one it was.
+      return NextResponse.json(
+        { error: "no conversation by that id for this identity" },
+        { status: 404 },
+      );
     }
 
     // OLDEST FIRST, so the transcript reads downwards. `started_at` can be null
