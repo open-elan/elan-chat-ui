@@ -1,149 +1,423 @@
 /* Deliberately small. The subject of this example is the credential split,
-   and a reader should not have to scroll past a design system to find it. */
+   and a reader should not have to scroll past a design system to find it.
 
-:root {
-  --ink: #16181d;
-  --dim: #6b7280;
-  --line: #e3e6ea;
-  --ground: #fbfbfc;
-  --panel: #ffffff;
-  --mine: #eef2ff;
-  --accent: #3d55d7;
-  --warn-line: #e0b24c;
-  --warn-wash: #fdf6e4;
-  --bad: #b4281f;
-  --radius: 10px;
-}
+   NO VALUES HERE, ONLY TOKENS. Every colour, radius, size and font below is a
+   var() from tokens.css — the console's own theme — so this page looks like
+   the product it talks to, and a rule that hardcodes a colour is visible as
+   the only literal in the file. */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #e8eaed;
-    --dim: #9aa3af;
-    --line: #2a2e36;
-    --ground: #14161a;
-    --panel: #1a1d22;
-    --mine: #232a44;
-    --accent: #8ea2ff;
-    --warn-line: #7a5e1e;
-    --warn-wash: #241f12;
-    --bad: #f08a80;
-  }
-}
+@import "./tokens.css";
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--ground);
-  color: var(--ink);
-  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--text-size);
+  line-height: var(--line-height);
+  -webkit-font-smoothing: antialiased;
 }
 
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+a { color: var(--accent-strong); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
 code {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 
+/* ── the signed-out pages ───────────────────────────────────────────────── */
+
 .shell {
-  max-width: 68rem;
+  max-width: 34rem;
   margin: 0 auto;
-  padding: 2rem 1rem 3rem;
+  padding: calc(var(--space) * 16) calc(var(--space) * 4) calc(var(--space) * 12);
 }
 
 .card {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  border: var(--border-width) solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem;
+  box-shadow: var(--shadow-raised);
+  padding: calc(var(--space) * 6);
 }
 
-.card h1 { margin: 0 0 .5rem; font-size: 1.3rem; }
-.card p { margin: 0 0 1rem; color: var(--dim); }
+.card h1 {
+  margin: 0 0 calc(var(--space) * 2);
+  font-size: calc(var(--text-size) * 1.36);
+  letter-spacing: var(--tracking-display);
+}
 
-.row { display: flex; gap: .5rem; }
+.card p { margin: 0 0 calc(var(--space) * 4); color: var(--text-muted); }
+
+.row { display: flex; gap: calc(var(--space) * 2); }
 .row input { flex: 1; }
 
+/* ── controls ───────────────────────────────────────────────────────────── */
+
 input {
-  padding: .6rem .7rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--ink);
+  padding: calc(var(--space) * 2) calc(var(--space) * 3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface-raised);
+  color: var(--text);
+  caret-color: var(--accent-strong);
   font: inherit;
   min-width: 0;
+  transition: border-color var(--motion-fast) var(--ease),
+              box-shadow var(--motion-fast) var(--ease);
 }
 
-input:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+input::placeholder { color: var(--text-muted); }
+input:hover:not(:disabled) { border-color: var(--text-muted); }
+
+/* A RING RATHER THAN A THICKER BORDER, so focusing the field does not reflow
+   the composer around it. */
+input:focus-visible {
+  outline: none;
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px var(--accent-wash);
 }
 
+input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* THE PRIMARY BUTTON IS EXACTLY THE BRAND GREEN, with the deep forest label
+   that makes it legible — white on it is 2.6:1. Hover and press are an
+   overlay painted over the fill rather than a darker green, so the fill never
+   stops being the brand colour. */
 button {
-  padding: .6rem 1rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--space) * 1.5);
+  padding: calc(var(--space) * 2) calc(var(--space) * 4);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-small);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 var(--border-width) var(--button-outline);
   font: inherit;
-  font-weight: 550;
+  font-weight: 560;
+  line-height: 1.2;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--motion-fast) var(--ease),
+              border-color var(--motion-fast) var(--ease),
+              color var(--motion-fast) var(--ease),
+              opacity var(--motion-fast) var(--ease);
 }
 
-button:disabled { opacity: .5; cursor: default; }
-button.reject { background: transparent; color: var(--ink); border-color: var(--line); }
+button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 100vmax var(--elevate-1),
+              inset 0 0 0 var(--border-width) var(--button-outline);
+}
+
+button:active:not(:disabled) {
+  box-shadow: inset 0 0 0 100vmax var(--elevate-2),
+              inset 0 0 0 var(--border-width) var(--button-outline);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* The quiet action beside a primary one: an edge and a label, never a fill. */
+button.reject {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--elevate-1); }
+
+/* ── the app frame ──────────────────────────────────────────────────────── */
+
+/* THE RAIL FRAMES THE PAGE, flush to the window edge and near-black in both
+   themes, as the console's is. The transcript — not the page — scrolls. */
+.shell-app {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  height: 100dvh;
+  display: flex;
+}
+
+.workspace {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+}
+
+/* ── the conversation rail ──────────────────────────────────────────────── */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--rail);
+  color: var(--rail-text);
+  border-right: var(--border-width) solid var(--rail-border);
+}
+
+/* THE ONLY SCROLLING PART OF THE RAIL, so "New chat" above and the identity
+   below stay put. `min-height: 0` is what lets it shrink at all. */
+.rail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--space) * 4) calc(var(--space) * 3);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rail-border) transparent;
+}
+
+/* ON THE RAIL, SO DRAWN FROM THE RAIL'S PALETTE. A green fill here would be a
+   second primary competing with Send; an outlined row reads as the control it
+   is without shouting. */
+.new {
+  justify-content: flex-start;
+  width: 100%;
+  margin-bottom: calc(var(--space) * 4);
+  padding: calc(var(--space) * 2) calc(var(--space) * 2.5);
+  background: transparent;
+  color: var(--rail-text);
+  border-color: var(--rail-border);
+  box-shadow: none;
+}
+
+.new:hover:not(:disabled) { background: var(--rail-wash); box-shadow: none; }
+.new:active:not(:disabled) { box-shadow: none; }
+.new svg { color: var(--rail-marker); }
+.new:focus-visible,
+.rail-item:focus-visible,
+.rail-drop:focus-visible { outline-color: var(--rail-marker); outline-offset: 1px; }
+
+/* Lucide draws every icon on a 24-unit grid at stroke 2; at 15–18px that
+   reads heavier than Google Sans beside it, so the stroke comes down a step
+   everywhere at once rather than icon by icon. */
+.lucide { flex: none; stroke-width: 1.75; }
+
+.rail-empty {
+  margin: 0 calc(var(--space) * 2.5);
+  font-size: var(--text-size-small);
+  color: var(--rail-muted);
+}
+
+.rail-list { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 0.5); }
+.rail-list li { position: relative; display: flex; }
+
+.rail-item {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  justify-content: stretch;
+  gap: 1px;
+  text-align: left;
+  padding: calc(var(--space) * 1.75) calc(var(--space) * 8) calc(var(--space) * 1.75) calc(var(--space) * 2.5);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-small);
+  box-shadow: none;
+  color: var(--rail-text);
+  font-weight: 400;
+  white-space: normal;
+}
+
+.rail-item:hover:not(:disabled) { background: var(--rail-wash); box-shadow: none; }
+
+/* THE MARKER IS A BAR, NOT JUST A COLOUR. The wash is a few percent of
+   lightness on a near-black rail and the eye loses it on a dim screen, so the
+   open conversation is said three ways: a ground, a weight, and a green rule
+   down the leading edge. */
+.rail-item.on,
+.rail-item.on:hover:not(:disabled) {
+  background: var(--rail-wash);
+  box-shadow: inset 2px 0 0 var(--rail-marker);
+}
+
+.rail-item.on .rail-title { font-weight: 620; }
+
+.rail-title {
+  font-size: calc(var(--text-size) * 0.96);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-id {
+  font-size: var(--text-size-tiny);
+  color: var(--rail-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Out of the way until wanted: shown on hover and on keyboard focus, and
+   always on a touch screen, where there is no hover to reveal it. Its red is
+   the rail's own, chosen against ink rather than paper. */
+.rail-drop {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--space) * 1.25);
+  translate: 0 -50%;
+  width: calc(var(--space) * 6.5);
+  height: calc(var(--space) * 6.5);
+  padding: 0;
+  background: transparent;
+  color: var(--rail-muted);
+  border: 0;
+  border-radius: var(--radius-small);
+  box-shadow: none;
+  opacity: 0;
+}
+
+.rail-list li:hover .rail-drop,
+.rail-drop:focus-visible { opacity: 1; }
+.rail-drop:hover:not(:disabled) { color: var(--rail-negative); background: var(--rail-border); box-shadow: none; }
+
+@media (hover: none) {
+  .rail-drop { opacity: 1; }
+}
+
+/* Identity at the foot of the rail: avatar, name, id. */
+.whoami {
+  flex: 0 0 auto;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--space) * 2.5);
+  padding: calc(var(--space) * 3.5) calc(var(--space) * 4);
+  border-top: var(--border-width) solid var(--rail-border);
+}
+
+.avatar {
+  flex: none;
+  width: calc(var(--space) * 8);
+  height: calc(var(--space) * 8);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: var(--text-size-tiny);
+  font-weight: 620;
+}
+
+.whoami-text { margin: 0; display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+
+.whoami-text > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whoami-label { font-size: var(--text-size-tiny); color: var(--rail-muted); }
+.whoami-text strong { font-size: var(--text-size-small); font-weight: 600; }
+.whoami-id { font-family: var(--font-mono); font-size: var(--text-size-tiny); color: var(--rail-muted); }
 
 /* ── the conversation ───────────────────────────────────────────────────── */
 
 .chat {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface);
 }
 
 .chat-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
-  padding: .7rem 1rem;
-  border-bottom: 1px solid var(--line);
+  gap: calc(var(--space) * 3);
+  padding: calc(var(--space) * 3.5) calc(var(--space) * 6);
+  background: var(--surface-raised);
+  border-bottom: var(--border-width) solid var(--border);
 }
 
-.agent { font-weight: 600; }
+.agent {
+  font-size: calc(var(--text-size) * 1.04);
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
 
+/* A STATUS, AS A SOFT GROUND WITH ORDINARY TEXT ON IT. The dot carries the
+   colour so the meaning does not rest on the tint alone; the word is still
+   the primary signal. */
 .state {
-  font-size: .78rem;
-  color: var(--dim);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: .1rem .55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space) * 1.25);
+  padding: 1px calc(var(--space) * 2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-size-tiny);
+  font-weight: 560;
+  color: var(--text);
+  background: var(--caution-soft);
 }
 
-.state-ready { color: var(--accent); border-color: currentColor; }
-.state-closed { color: var(--bad); border-color: currentColor; }
+.state > i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--caution);
+}
+
+.state-ready { background: var(--positive-soft); }
+.state-ready > i { background: var(--positive); }
+.state-closed { background: var(--negative-soft); }
+.state-closed > i { background: var(--negative); }
+
+/* The column stays at a readable measure however wide the window gets; the
+   padding does the centring so the scrollbar stays at the panel's edge. */
+.transcript,
+.chat > .notice,
+.chat > .failed,
+.composer {
+  --measure: 46rem;
+  padding-inline: max(calc(var(--space) * 6), calc((100% - var(--measure)) / 2));
+}
 
 .transcript {
-  padding: 1rem;
+  flex: 1;
+  min-height: 0;
+  padding-block: calc(var(--space) * 6);
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  min-height: 16rem;
-  max-height: 60vh;
+  gap: calc(var(--space) * 6);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
-.empty { color: var(--dim); margin: 0; }
-.turn { display: flex; flex-direction: column; gap: .5rem; }
+.empty { color: var(--text-muted); margin: auto; text-align: center; }
+.turn { display: flex; flex-direction: column; gap: calc(var(--space) * 2.5); }
 
 .mine {
   align-self: flex-end;
   max-width: 85%;
   margin: 0;
-  padding: .55rem .8rem;
-  background: var(--mine);
-  border-radius: var(--radius) var(--radius) 2px var(--radius);
+  padding: calc(var(--space) * 2) calc(var(--space) * 3.5);
+  background: var(--accent-wash);
+  border-radius: calc(var(--radius) * 1.5) calc(var(--radius) * 1.5) var(--radius-small) calc(var(--radius) * 1.5);
   white-space: pre-wrap;
 }
 
@@ -155,146 +429,110 @@ button.reject { background: transparent; color: var(--ink); border-color: var(--
 
 .author {
   display: block;
-  font-size: .74rem;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--dim);
-  margin-bottom: .15rem;
+  font-size: var(--text-size-small);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: calc(var(--space) * 1);
 }
 
-.waiting { margin: 0; color: var(--dim); font-size: .88rem; font-style: italic; }
-.failed { margin: .4rem 0 0; color: var(--bad); font-size: .9rem; }
+.waiting {
+  margin: 0;
+  display: grid;
+  gap: calc(var(--space) * 1);
+}
+
+.waiting-why {
+  max-width: 34rem;
+  font-size: var(--text-size-small);
+  color: var(--text-muted);
+  padding-left: calc(var(--space) * 6.5);
+}
+
+.failed { margin: calc(var(--space) * 1.5) 0 0; color: var(--negative); font-size: var(--text-size-small); }
+.dim { color: var(--text-muted); }
 
 /* ── a pause ────────────────────────────────────────────────────────────── */
 
+/* ON THE SOFT GROUND OF WHAT IT IS SAYING: the agent is waiting on a person,
+   which is a caution, and the words stay at full contrast on top of it. */
 .pause {
-  border: 1px solid var(--warn-line);
-  background: var(--warn-wash);
+  border: var(--border-width) solid color-mix(in srgb, var(--caution) 35%, transparent);
+  background: var(--caution-soft);
   border-radius: var(--radius);
-  padding: .8rem .9rem;
+  padding: calc(var(--space) * 3.5) calc(var(--space) * 4);
 }
 
-.pause-why { margin: 0 0 .6rem; }
+.pause-why { margin: 0 0 calc(var(--space) * 3); }
 
 .pause-kind {
-  display: inline-block;
-  margin-right: .5rem;
-  font-size: .72rem;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  border: 1px solid var(--warn-line);
-  border-radius: 999px;
-  padding: .05rem .5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space) * 1.25);
+  margin-right: calc(var(--space) * 2);
+  padding: 1px calc(var(--space) * 2);
+  font-size: var(--text-size-tiny);
+  font-weight: 560;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
 }
 
-.pause-act { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.pause-kind::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--attention);
+}
+
+.pause-act { display: flex; flex-wrap: wrap; gap: calc(var(--space) * 2); align-items: center; }
 .pause-act input { flex: 1 1 12rem; }
-.pause-note { margin: .6rem 0 0; font-size: .88rem; color: var(--dim); }
-.tools { flex: 1 1 100%; margin: 0 0 .4rem; padding-left: 1.1rem; font-size: .9rem; }
+.pause-note { margin: calc(var(--space) * 2.5) 0 0; font-size: var(--text-size-small); color: var(--text-muted); }
+.tools { flex: 1 1 100%; margin: 0 0 calc(var(--space) * 1.5); padding-left: calc(var(--space) * 4.5); font-size: var(--text-size-small); }
 
 /* ── composer ───────────────────────────────────────────────────────────── */
 
 .composer {
   display: flex;
-  gap: .5rem;
-  padding: .8rem 1rem;
-  border-top: 1px solid var(--line);
+  gap: calc(var(--space) * 2);
+  padding-block: calc(var(--space) * 3.5) calc(var(--space) * 4.5);
+  background: var(--surface-raised);
+  border-top: var(--border-width) solid var(--border);
 }
 
-.composer input { flex: 1; }
+.composer input { flex: 1; padding: calc(var(--space) * 2.75) calc(var(--space) * 3.5); }
 
-.whoami { margin: 1rem 0 0; font-size: .85rem; color: var(--dim); }
-.dim { color: var(--dim); }
-
-@media (max-width: 30rem) {
-  .shell { padding: 1rem .75rem 2rem; }
-  .mine { max-width: 100%; }
+/* SQUARE, AND AS TALL AS THE FIELD BESIDE IT — `align-self: stretch` does
+   that without restating the field's padding here. */
+.send {
+  flex: none;
+  align-self: stretch;
+  aspect-ratio: 1;
+  padding: 0;
 }
 
-/* ── the conversation rail ──────────────────────────────────────────────── */
+.spin { animation: spin .8s linear infinite; }
 
-.workspace {
-  display: grid;
-  grid-template-columns: 15rem 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
-.rail {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: .7rem;
-  position: sticky;
-  top: 1rem;
-}
-
-.new { width: 100%; margin-bottom: .6rem; }
-.rail-empty { margin: 0; font-size: .85rem; color: var(--dim); }
-
-.rail-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; }
-.rail-list li { display: flex; align-items: stretch; gap: .15rem; }
-
-.rail-item {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: .1rem;
-  text-align: left;
-  padding: .45rem .55rem;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--ink);
-  font-weight: 400;
-}
-
-.rail-item:hover { background: var(--ground); }
-.rail-item.on { background: var(--mine); border-color: var(--line); font-weight: 550; }
-
-.rail-title {
-  font-size: .88rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rail-id {
-  font-size: .68rem;
-  color: var(--dim);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-}
-
-.rail-drop {
-  flex: 0 0 auto;
-  padding: 0 .45rem;
-  background: transparent;
-  color: var(--dim);
-  border: 1px solid transparent;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.rail-drop:hover { color: var(--bad); background: var(--ground); }
+@keyframes spin { to { transform: rotate(1turn); } }
 
 /* ── liveness ───────────────────────────────────────────────────────────── */
 
 .typing {
   display: flex;
   align-items: center;
-  gap: .45rem;
+  gap: calc(var(--space) * 2);
   margin: 0;
-  font-size: .88rem;
-  color: var(--dim);
+  font-size: var(--text-size-small);
+  color: var(--text-muted);
 }
 
-.dots { display: inline-flex; gap: .2rem; }
+.dots { display: inline-flex; gap: calc(var(--space) * 0.75); }
 
 .dots i {
-  width: .32rem;
-  height: .32rem;
-  border-radius: 50%;
-  background: currentColor;
-  animation: pulse 1.2s ease-in-out infinite;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-strong);
+  animation: pulse 1.2s var(--ease) infinite;
 }
 
 .dots i:nth-child(2) { animation-delay: .15s; }
@@ -316,132 +554,287 @@ button.reject { background: transparent; color: var(--ink); border-color: var(--
 
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
-.md p { margin: 0 0 .6rem; }
-.md ul, .md ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
-.md li { margin: .15rem 0; }
+.md p { margin: 0 0 calc(var(--space) * 2.5); }
+.md ul, .md ol { margin: 0 0 calc(var(--space) * 2.5); padding-left: calc(var(--space) * 5); }
+.md li { margin: calc(var(--space) * 0.5) 0; }
 .md li > p { margin: 0; }
 
 .md h1, .md h2, .md h3, .md h4 {
-  margin: .9rem 0 .4rem;
+  margin: calc(var(--space) * 4) 0 calc(var(--space) * 1.5);
   line-height: 1.3;
-  font-size: 1rem;
+  font-size: var(--text-size);
+  font-weight: 620;
 }
 
-.md h1 { font-size: 1.15rem; }
-.md h2 { font-size: 1.07rem; }
+.md h1 { font-size: calc(var(--text-size) * 1.2); letter-spacing: var(--tracking-display); }
+.md h2 { font-size: calc(var(--text-size) * 1.08); }
 
 .md code {
-  background: var(--ground);
-  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border);
   border-radius: 4px;
-  padding: .05rem .25rem;
+  padding: 0 calc(var(--space) * 1);
 }
 
+/* ITS OWN GROUND IN BOTH THEMES, dark either way: a block of code is read
+   differently from a paragraph and the surface is what says so. */
 .md-pre {
-  margin: 0 0 .6rem;
-  padding: .65rem .75rem;
-  background: var(--ground);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  margin: 0 0 calc(var(--space) * 2.5);
+  padding: calc(var(--space) * 3);
+  background: var(--code-surface);
+  color: var(--code-text);
+  border-radius: var(--radius-small);
   overflow-x: auto;
+  font-size: var(--text-size-small);
 }
 
-/* The block already has the border and the ground; the inline rule must not
-   paint a second box inside it. */
-.md-pre code { background: none; border: 0; padding: 0; }
+/* The block already has its own ground; the inline rule must not paint a
+   second box inside it. */
+.md-pre code { background: none; border: 0; padding: 0; color: inherit; }
 
+/* A quotation's rule is typography, not a card's accent stripe. */
 .md blockquote {
-  margin: 0 0 .6rem;
-  padding-left: .75rem;
-  border-left: 3px solid var(--line);
-  color: var(--dim);
+  margin: 0 0 calc(var(--space) * 2.5);
+  padding-left: calc(var(--space) * 3);
+  border-left: 3px solid var(--border);
+  color: var(--text-muted);
 }
 
-.md-scroll { overflow-x: auto; margin-bottom: .6rem; }
-.md table { border-collapse: collapse; font-size: .9rem; }
-.md th, .md td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }
-.md th { background: var(--ground); font-weight: 600; }
-.md hr { border: 0; border-top: 1px solid var(--line); margin: .9rem 0; }
+.md-scroll { overflow-x: auto; margin-bottom: calc(var(--space) * 2.5); }
+.md table { border-collapse: collapse; font-size: var(--text-size-small); font-variant-numeric: tabular-nums; }
+.md th, .md td { border: var(--border-width) solid var(--border); padding: calc(var(--space) * 1.25) calc(var(--space) * 2); text-align: left; }
+.md th { background: var(--surface-sunken); font-weight: 600; }
+.md hr { border: 0; border-top: var(--border-width) solid var(--border); margin: calc(var(--space) * 4) 0; }
 .md img { max-width: 100%; height: auto; }
-
-@media (max-width: 52rem) {
-  .workspace { grid-template-columns: 1fr; }
-  .rail { position: static; }
-  .rail-list { grid-auto-flow: row; max-height: 11rem; overflow-y: auto; }
-}
 
 /* ── what the agent did ─────────────────────────────────────────────────── */
 
 .notice {
-  margin: .4rem 0 0;
-  font-size: .85rem;
-  color: var(--dim);
-  border-left: 3px solid var(--line);
-  padding-left: .6rem;
+  margin: 0;
+  padding-block: calc(var(--space) * 2.5);
+  font-size: var(--text-size-small);
+  color: var(--text);
+  background: var(--info-soft);
+  border-top: var(--border-width) solid var(--border);
 }
 
 .tools-used {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--ground);
-  font-size: .88rem;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--surface-raised);
+  font-size: var(--text-size-small);
 }
 
 .tools-used > summary {
-  padding: .4rem .6rem;
+  padding: calc(var(--space) * 1.75) calc(var(--space) * 2.5);
   cursor: pointer;
-  color: var(--dim);
+  color: var(--text-muted);
   list-style: none;
+  border-radius: var(--radius-small);
 }
+
+.tools-used > summary:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 
 /* The default marker sits oddly against the padding; a rotating caret of our
    own keeps the open/closed state visible without it. */
 .tools-used > summary::-webkit-details-marker { display: none; }
 
-.tools-used > summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: .4rem;
-  transition: transform .12s ease;
+.tools-caret {
+  vertical-align: -2px;
+  margin-right: calc(var(--space) * 1);
+  transition: transform var(--motion-fast) var(--ease);
 }
 
-.tools-used[open] > summary::before { transform: rotate(90deg); }
-.tools-used > summary:hover { color: var(--ink); }
-.tools-verb { font-weight: 550; color: var(--ink); }
-.tools-pending { color: var(--warn-line); }
+.tools-used[open] .tools-caret { transform: rotate(90deg); }
+.tools-used > summary:hover { color: var(--text); }
+.tools-verb { font-weight: 560; color: var(--text); }
+.tools-pending { color: var(--caution); }
 
 .tools-detail {
   margin: 0;
-  padding: 0 .6rem .6rem 1.7rem;
+  padding: 0 calc(var(--space) * 2.5) calc(var(--space) * 2.5) calc(var(--space) * 7);
   display: grid;
-  gap: .7rem;
+  gap: calc(var(--space) * 3);
 }
 
-.tools-detail > li { display: grid; gap: .25rem; }
-.tools-name { font-weight: 550; }
-.tools-pair { display: grid; gap: .1rem; }
+.tools-detail > li { display: grid; gap: calc(var(--space) * 1); }
+.tools-name { font-weight: 560; }
+.tools-pair { display: grid; gap: calc(var(--space) * 0.5); }
 
 .tools-label {
-  font-size: .7rem;
+  font-size: var(--text-size-tiny);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: var(--dim);
+  color: var(--text-muted);
 }
 
 .tools-pair pre {
   margin: 0;
-  padding: .4rem .5rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  padding: calc(var(--space) * 2) calc(var(--space) * 2.5);
+  background: var(--code-surface);
+  color: var(--code-text);
+  border-radius: var(--radius-small);
   overflow-x: auto;
   max-height: 14rem;
   overflow-y: auto;
-  font-size: .82rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-size-tiny);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tools-used > summary::before { transition: none; }
+  .tools-caret { transition: none; }
+  .spin { animation-duration: 2.4s; }
+}
+
+/* ── narrow screens ─────────────────────────────────────────────────────── */
+
+/* A 16rem column pinned to the full height of a phone leaves almost nothing
+   for the conversation, so below this width the rail goes on top, keeps a
+   short scroll of its own, and drops the identity block. */
+@media (max-width: 45rem) {
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .rail { border-right: 0; border-bottom: var(--border-width) solid var(--rail-border); max-height: 34dvh; }
+  .whoami { display: none; }
+  .chat-head { padding-inline: calc(var(--space) * 4); }
+
+  .transcript,
+  .chat > .notice,
+  .chat > .failed,
+  .composer { padding-inline: calc(var(--space) * 4); }
+
+  .mine { max-width: 92%; }
+  .waiting-why { padding-left: 0; }
+}
+
+/* ── the theme switch ───────────────────────────────────────────────────── */
+
+.chat-tools { display: flex; align-items: center; gap: calc(var(--space) * 3); }
+
+/* A SEGMENTED CONTROL: a sunken track, and the chosen option raised out of
+   it. Quiet on purpose — it is a preference, not an action, so none of it
+   borrows the green that Send is spending. */
+.theme-switch {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-small);
+}
+
+.theme-switch button {
+  width: calc(var(--space) * 6.5);
+  height: calc(var(--space) * 6);
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 0;
+  border-radius: calc(var(--radius-small) - 2px);
+  box-shadow: none;
+}
+
+.theme-switch button:hover:not(:disabled) { color: var(--text); box-shadow: none; }
+
+.theme-switch button[aria-pressed="true"] {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 1px 2px var(--elevate-2), 0 0 0 var(--border-width) var(--border);
+}
+
+/* ── the end user's credits, in the rail ─────────────────────────────────── */
+
+.purse {
+  flex: 0 0 auto;
+  display: grid;
+  gap: calc(var(--space) * 0.5);
+  padding: calc(var(--space) * 3) calc(var(--space) * 4);
+  border-top: var(--border-width) solid var(--rail-border);
+}
+
+.purse-label {
+  font-size: var(--text-size-tiny);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-display);
+  color: var(--rail-muted);
+}
+
+.purse-amount {
+  margin: 0;
+  font-size: var(--text-size-stat);
+  font-weight: 500;
+  color: var(--rail-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.purse-held,
+.purse-note,
+.purse-frozen {
+  margin: 0;
+  font-size: var(--text-size-tiny);
+  line-height: 1.45;
+  color: var(--rail-muted);
+}
+
+/* A hold is in flight, not wrong — the caution colour, never the negative one. */
+.purse-held { color: var(--caution); }
+.purse-frozen { color: var(--rail-negative); }
+.purse-note code { color: var(--rail-text); }
+
+.purse-statement > summary {
+  margin-top: calc(var(--space) * 1.5);
+  font-size: var(--text-size-tiny);
+  color: var(--rail-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.purse-statement > summary::-webkit-details-marker { display: none; }
+
+.purse-statement > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: calc(var(--space) * 1);
+  transition: transform var(--motion-fast) var(--ease);
+}
+
+.purse-statement[open] > summary::before { transform: rotate(90deg); }
+.purse-statement > summary:hover { color: var(--rail-text); }
+.purse-more { color: var(--rail-muted); }
+
+.purse-statement ul {
+  list-style: none;
+  margin: calc(var(--space) * 1.5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: calc(var(--space) * 1.5);
+  max-height: 13rem;
+  overflow-y: auto;
+}
+
+.purse-statement li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 calc(var(--space) * 1.5);
+  align-items: baseline;
+  font-size: var(--text-size-tiny);
+}
+
+.purse-in { color: var(--rail-marker); font-variant-numeric: tabular-nums; }
+.purse-out { color: var(--rail-text); font-variant-numeric: tabular-nums; }
+.purse-kind { color: var(--rail-text); }
+
+.purse-ref,
+.purse-when {
+  grid-column: 2;
+  color: var(--rail-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .purse-statement > summary::before { transition: none; }
 }
