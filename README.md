@@ -85,9 +85,24 @@ pnpm dev                       # http://localhost:3002
 | `ELAN_CLIENT_ID` / `ELAN_CLIENT_SECRET` | A service user, from the console's API access page or `POST /v1/projects/{project}/service-users`. |
 | `ELAN_TARGET` | Which agent this chat talks to. |
 | `DEMO_SESSION_SECRET` | Signs the demo identity cookie. `openssl rand -hex 32`. |
+| `DEMO_USER_ID` | **Optional, and the one you want if you have opened a wallet.** See below. |
 
 The service user needs to be allowed to mint tickets, which is a **tenant
 admin** capability — `POST /v1/tickets` refuses a plain member.
+
+### If you want a wallet to pay for the runs
+
+A wallet is keyed on the **external user id**, so the `demo-<random hex>` id the
+sign-in generates can never match one you created: the lookup resolves nothing,
+falls back to the tenant's token balance, and charges no wallet at all. Nothing
+errors, which is what makes it worth saying.
+
+So if you have run `elan wallet new demo-wallet`, set `DEMO_USER_ID=demo-wallet`
+and every run in this app is funded by that wallet. The page footer shows which
+id is in play, so you can check at a glance.
+
+It is a **server** variable and not a request field, so a visitor still cannot
+point the app at somebody else's wallet.
 
 ---
 

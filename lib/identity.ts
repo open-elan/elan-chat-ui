@@ -91,15 +91,44 @@ export async function read(): Promise<Identity | null> {
   };
 }
 
+/**
+ * The end-user id to use, which decides WHICH WALLET pays.
+ *
+ * A wallet is keyed on the external user id, so a generated id can never match
+ * one you created by hand — the lookup resolves nothing, falls back to the
+ * tenant's token balance, and charges nobody in particular. That is fine for
+ * kicking the tyres and wrong the moment you want to watch a wallet draw down,
+ * which is why `DEMO_USER_ID` exists: set it to the id you opened a wallet for
+ * (`elan wallet new <id>`) and every run in this app is funded by it.
+ *
+ * STILL THE SERVER'S CHOICE. It is an environment variable, not a request
+ * field, so a visitor cannot point the app at somebody else's wallet.
+ */
+function chooseUserId(): string {
+  const pinned = (process.env.DEMO_USER_ID ?? "").trim();
+  if (!pinned) {
+    // A STABLE ID THAT IS NOT THE LABEL. Two visitors may both call themselves
+    // "Ada"; their runs, and their wallets, must not merge.
+    return `demo-${randomBytes(8).toString("hex")}`;
+  }
+  if (!ALLOWED.test(pinned)) {
+    throw new ConfigError(
+      `DEMO_USER_ID=${pinned} is not a usable end-user id. It must match ` +
+        `${String(ALLOWED)} — in particular it may not contain a colon, ` +
+        `because a ticket's subject is composed as \`eu:<id>\` and the ` +
+        `platform splits on the first one.`,
+    );
+  }
+  return pinned;
+}
+
 /** The `Set-Cookie` value for a freshly claimed identity. */
 export function cookieFor(label: string): {
   name: string;
   value: string;
   options: Record<string, unknown>;
 } {
-  // A STABLE ID THAT IS NOT THE LABEL. Two visitors may both call themselves
-  // "Ada"; their runs, and their wallets, must not merge.
-  const userId = `demo-${randomBytes(8).toString("hex")}`;
+  const userId = chooseUserId();
   const body = `${userId}|${Buffer.from(label, "utf8").toString("base64url")}`;
   return {
     name: COOKIE,
