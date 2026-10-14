@@ -45,7 +45,7 @@ code {
 }
 
 .shell {
-  max-width: 44rem;
+  max-width: 68rem;
   margin: 0 auto;
   padding: 2rem 1rem 3rem;
 }
@@ -147,7 +147,11 @@ button.reject { background: transparent; color: var(--ink); border-color: var(--
   white-space: pre-wrap;
 }
 
-.theirs { margin: 0; white-space: pre-wrap; }
+/* NO `pre-wrap` HERE. The agent's side is markdown now, so the renderer owns
+   the layout — preserving the source whitespace on top of it would double
+   every blank line between paragraphs. `.mine` keeps it, because that is
+   plain text somebody typed. */
+.theirs { margin: 0; }
 
 .author {
   display: block;
@@ -205,4 +209,163 @@ button.reject { background: transparent; color: var(--ink); border-color: var(--
 @media (max-width: 30rem) {
   .shell { padding: 1rem .75rem 2rem; }
   .mine { max-width: 100%; }
+}
+
+/* ── the conversation rail ──────────────────────────────────────────────── */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.rail {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: .7rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.new { width: 100%; margin-bottom: .6rem; }
+.rail-empty { margin: 0; font-size: .85rem; color: var(--dim); }
+
+.rail-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; }
+.rail-list li { display: flex; align-items: stretch; gap: .15rem; }
+
+.rail-item {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: .1rem;
+  text-align: left;
+  padding: .45rem .55rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.rail-item:hover { background: var(--ground); }
+.rail-item.on { background: var(--mine); border-color: var(--line); font-weight: 550; }
+
+.rail-title {
+  font-size: .88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-id {
+  font-size: .68rem;
+  color: var(--dim);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.rail-drop {
+  flex: 0 0 auto;
+  padding: 0 .45rem;
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid transparent;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.rail-drop:hover { color: var(--bad); background: var(--ground); }
+
+/* ── liveness ───────────────────────────────────────────────────────────── */
+
+.typing {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: 0;
+  font-size: .88rem;
+  color: var(--dim);
+}
+
+.dots { display: inline-flex; gap: .2rem; }
+
+.dots i {
+  width: .32rem;
+  height: .32rem;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) { animation-delay: .15s; }
+.dots i:nth-child(3) { animation-delay: .3s; }
+
+@keyframes pulse {
+  0%, 60%, 100% { opacity: .25; }
+  30% { opacity: 1; }
+}
+
+/* Respected rather than assumed: a pulsing indicator is exactly the kind of
+   motion somebody turns this setting on to be rid of. */
+@media (prefers-reduced-motion: reduce) {
+  .dots i { animation: none; opacity: .6; }
+  .transcript { scroll-behavior: auto; }
+}
+
+/* ── markdown ───────────────────────────────────────────────────────────── */
+
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 .6rem; }
+.md ul, .md ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
+.md li { margin: .15rem 0; }
+.md li > p { margin: 0; }
+
+.md h1, .md h2, .md h3, .md h4 {
+  margin: .9rem 0 .4rem;
+  line-height: 1.3;
+  font-size: 1rem;
+}
+
+.md h1 { font-size: 1.15rem; }
+.md h2 { font-size: 1.07rem; }
+
+.md code {
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: .05rem .25rem;
+}
+
+.md-pre {
+  margin: 0 0 .6rem;
+  padding: .65rem .75rem;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+/* The block already has the border and the ground; the inline rule must not
+   paint a second box inside it. */
+.md-pre code { background: none; border: 0; padding: 0; }
+
+.md blockquote {
+  margin: 0 0 .6rem;
+  padding-left: .75rem;
+  border-left: 3px solid var(--line);
+  color: var(--dim);
+}
+
+.md-scroll { overflow-x: auto; margin-bottom: .6rem; }
+.md table { border-collapse: collapse; font-size: .9rem; }
+.md th, .md td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }
+.md th { background: var(--ground); font-weight: 600; }
+.md hr { border: 0; border-top: 1px solid var(--line); margin: .9rem 0; }
+.md img { max-width: 100%; height: auto; }
+
+@media (max-width: 52rem) {
+  .workspace { grid-template-columns: 1fr; }
+  .rail { position: static; }
+  .rail-list { grid-auto-flow: row; max-height: 11rem; overflow-y: auto; }
 }

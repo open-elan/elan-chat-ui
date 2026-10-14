@@ -7,9 +7,9 @@
  * cannot ask for, the service user's id or secret.
  */
 
-import { Chat } from "@/components/Chat";
 import { Provider } from "@/components/Provider";
 import { SignIn } from "@/components/SignIn";
+import { Workspace } from "@/components/Workspace";
 import { read } from "@/lib/identity";
 
 export default async function Page() {
@@ -45,7 +45,7 @@ export default async function Page() {
   return (
     <main className="shell">
       <Provider baseUrl={baseUrl}>
-        <Chat agent={agent} />
+        <Workspace agent={agent} />
       </Provider>
       <p className="whoami">
         watching as <strong>{who.label}</strong>{" "}

@@ -117,10 +117,15 @@ point the app at somebody else's wallet.
    browser's credential, and the field it deliberately does not accept.
 4. **[`components/Provider.tsx`](components/Provider.tsx)** — the ticket
    **supplier**, and why it must be a stable reference.
-5. **[`components/Chat.tsx`](components/Chat.tsx)** — `useAgentEvents`, and the
-   composer that waits for the socket.
+5. **[`components/Chat.tsx`](components/Chat.tsx)** — `useAgentEvents`, the
+   composer that waits for the socket, and why the transcript is folded from
+   events rather than kept in a local list.
 6. **[`components/Approvals.tsx`](components/Approvals.tsx)** — the three kinds
    of pause and the different call each one needs.
+7. **[`app/api/history/route.ts`](app/api/history/route.ts)** — the durable
+   read, and the ownership check that has to happen before it.
+8. **[`lib/sessions.ts`](lib/sessions.ts)** — why the conversation list is
+   **yours** and not the platform's.
 
 ---
 
@@ -139,6 +144,56 @@ Each of these cost somebody real time before it was written down.
 | **An `abandoned` status can follow an approval** — the engine refuses a batch with a later user turn — and it means nothing ran. | Reported rather than shown as a tick. |
 | **A resume carries data, not just consent.** `payload` becomes the paused node's own output and flows to the next node. | The `input` card sends a value. |
 | **A resume can be refused for funds where the first turn was not.** A pause settles and holds nothing, so the resumed turn reserves on its own merits. | `/api/resume` maps that to a `402`. |
+
+---
+
+## Conversations, liveness, and markdown
+
+**The sidebar is the app's own list, because the platform has none to give.** A
+session id is yours to choose — nothing mints one — and no route enumerates
+them. `GET /v1/sessions` reads the *platform's* database, so for a tenant's
+agents it correctly and permanently reports nothing; `GET /v1/runs` lists runs
+rather than conversations, has no user filter, and pages 25 rows across every
+end user in the project. So [`lib/sessions.ts`](lib/sessions.ts) keeps the list
+in `localStorage`, and in a real app **that file is your database**.
+
+**What each conversation SAID comes back from the record**, through
+[`/api/history`](app/api/history/route.ts) — because nothing buffers a stream
+for a socket that was not open, so without it every chat but the active one
+would render empty. Two things about that route are the point:
+
+- **It checks ownership before it reads anything.** A session id is a guessable
+  string and the service user can see every run in the project, so every run in
+  the page must be attributed to `eu:<this caller>` or the whole request is a
+  404. Scoped by *session* for a reason: filtering a project-wide page by user
+  afterwards would answer "no history" for a busy project, because the caller's
+  own runs can be pushed off the first page entirely.
+- **`toReply(run)` folds a recorded run into the stream's own shape**, filling
+  the identity back in from the run. That is what lets history and live events
+  share one renderer instead of two that disagree.
+
+**The transcript is folded from events, not kept in a local list.** The engine
+publishes the message that started a run on the `started` event, so the human's
+turn is in the stream alongside the agent's. The one thing kept locally is an
+optimistic echo of what was just sent: `queued` arrives at once but carries no
+text, and `started` cannot arrive until a pod exists.
+
+**`typing` events drive the liveness line.** The platform's typing plugin emits
+`{state, subject, label}` where `label` is a ready-made sentence — "Agent is
+thinking…", "Agent is searching unpaid invoices…" — so a client does not invent
+phrasing and a translation has somewhere to live. It deliberately emits no
+`idle` after the model returns, because `content`, `finished` and `error`
+already mean clear; the fold walks events in order for exactly that reason, so
+the indicator clears when the agent speaks and returns when it goes quiet.
+
+**Replies render as markdown**, because a model writes it whether or not you
+render it: shown as plain text, a good answer arrives as `**Total:** £420` with
+literal `1.` list markers. **Raw HTML inside a reply is not rendered** —
+`react-markdown` without `rehype-raw` — and that default is the reason to use it
+rather than `dangerouslySetInnerHTML`: a reply is untrusted text, since it can
+repeat anything a user typed or a tool fetched. Verified: an
+`<img src=x onerror=…>` in a reply comes out as escaped characters, not an
+element. If you ever add `rehype-raw`, add a sanitiser with it.
 
 ---
 
