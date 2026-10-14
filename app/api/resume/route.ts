@@ -27,6 +27,7 @@
 import { NextResponse } from "next/server";
 
 import { elan } from "@/lib/elan";
+import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
 
 export async function POST(request: Request) {
@@ -71,9 +72,6 @@ export async function POST(request: Request) {
     // to the interrupt id so the two halves do not collide.
     return NextResponse.json({ invocation_id: accepted.invocation_id });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("could not resume:", message);
-    const status = /insufficient|payment/i.test(message) ? 402 : 502;
-    return NextResponse.json({ error: message }, { status });
+    return failed("could not resume", error);
   }
 }

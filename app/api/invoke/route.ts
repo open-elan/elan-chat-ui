@@ -30,6 +30,7 @@
 import { NextResponse } from "next/server";
 
 import { elan, target } from "@/lib/elan";
+import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
 
 export async function POST(request: Request) {
@@ -69,12 +70,9 @@ export async function POST(request: Request) {
       message_id: started.message_id,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("could not invoke:", message);
     // A 402 here means the end user's wallet (or the tenant's balance) will
     // not cover the run, which is a thing the UI should say plainly rather
-    // than retry.
-    const status = /insufficient|payment/i.test(message) ? 402 : 502;
-    return NextResponse.json({ error: message }, { status });
+    // than retry. `failed` is where that mapping lives.
+    return failed("could not invoke", error);
   }
 }

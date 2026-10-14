@@ -28,6 +28,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
+import { ConfigError } from "./failure";
+
 const COOKIE = "elan_demo_user";
 
 /** An end-user id may not contain a colon: `eu:<id>` is how a ticket's subject
@@ -37,7 +39,7 @@ const ALLOWED = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 function secret(): string {
   const found = process.env.DEMO_SESSION_SECRET;
   if (!found) {
-    throw new Error(
+    throw new ConfigError(
       "DEMO_SESSION_SECRET is not set. Any long random string will do — " +
         "`openssl rand -hex 32`. It signs the demo identity cookie.",
     );

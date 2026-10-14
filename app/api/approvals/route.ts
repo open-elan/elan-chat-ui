@@ -25,6 +25,7 @@
 import { NextResponse } from "next/server";
 
 import { elan } from "@/lib/elan";
+import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
 
 export async function GET(request: Request) {
@@ -45,9 +46,7 @@ export async function GET(request: Request) {
     const batches = await elan().actions.batches({ sessionId, status: "pending" });
     return NextResponse.json({ batches });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("could not list approvals:", message);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return failed("could not list approvals", error);
   }
 }
 
@@ -89,11 +88,9 @@ export async function POST(request: Request) {
       decisions: outcome.decisions,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("could not decide:", message);
     // A 409 means somebody — or the engine's own abandonment — got there
-    // first. Retrying does not help and would not be idempotent if it did.
-    const status = /conflict|already|not pending/i.test(message) ? 409 : 502;
-    return NextResponse.json({ error: message }, { status });
+    // first. Retrying does not help and would not be idempotent if it did;
+    // `failed` is where that mapping lives.
+    return failed("could not decide", error);
   }
 }

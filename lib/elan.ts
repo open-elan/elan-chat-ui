@@ -17,10 +17,12 @@
 
 import { ElanClient } from "elan-sdk";
 
+import { ConfigError } from "./failure";
+
 function required(name: string): string {
   const found = process.env[name];
   if (!found) {
-    throw new Error(
+    throw new ConfigError(
       `${name} is not set. Copy .env.example to .env.local and fill it in; ` +
         `a service user comes from the console's API access page, or ` +
         `POST /v1/projects/{project}/service-users.`,

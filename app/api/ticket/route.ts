@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 
 import { elan, originOf } from "@/lib/elan";
+import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
 
 export async function POST(request: Request) {
@@ -40,8 +41,6 @@ export async function POST(request: Request) {
   } catch (error) {
     // The platform's refusals are already written for a developer, so they are
     // passed through rather than flattened into "something went wrong".
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("could not mint a ticket:", message);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return failed("could not mint a ticket", error);
   }
 }
