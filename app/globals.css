@@ -1,0 +1,208 @@
+/* Deliberately small. The subject of this example is the credential split,
+   and a reader should not have to scroll past a design system to find it. */
+
+:root {
+  --ink: #16181d;
+  --dim: #6b7280;
+  --line: #e3e6ea;
+  --ground: #fbfbfc;
+  --panel: #ffffff;
+  --mine: #eef2ff;
+  --accent: #3d55d7;
+  --warn-line: #e0b24c;
+  --warn-wash: #fdf6e4;
+  --bad: #b4281f;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8eaed;
+    --dim: #9aa3af;
+    --line: #2a2e36;
+    --ground: #14161a;
+    --panel: #1a1d22;
+    --mine: #232a44;
+    --accent: #8ea2ff;
+    --warn-line: #7a5e1e;
+    --warn-wash: #241f12;
+    --bad: #f08a80;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.shell {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.card h1 { margin: 0 0 .5rem; font-size: 1.3rem; }
+.card p { margin: 0 0 1rem; color: var(--dim); }
+
+.row { display: flex; gap: .5rem; }
+.row input { flex: 1; }
+
+input {
+  padding: .6rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  padding: .6rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+button:disabled { opacity: .5; cursor: default; }
+button.reject { background: transparent; color: var(--ink); border-color: var(--line); }
+
+/* ── the conversation ───────────────────────────────────────────────────── */
+
+.chat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .7rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.agent { font-weight: 600; }
+
+.state {
+  font-size: .78rem;
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .1rem .55rem;
+}
+
+.state-ready { color: var(--accent); border-color: currentColor; }
+.state-closed { color: var(--bad); border-color: currentColor; }
+
+.transcript {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  min-height: 16rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.empty { color: var(--dim); margin: 0; }
+.turn { display: flex; flex-direction: column; gap: .5rem; }
+
+.mine {
+  align-self: flex-end;
+  max-width: 85%;
+  margin: 0;
+  padding: .55rem .8rem;
+  background: var(--mine);
+  border-radius: var(--radius) var(--radius) 2px var(--radius);
+  white-space: pre-wrap;
+}
+
+.theirs { margin: 0; white-space: pre-wrap; }
+
+.author {
+  display: block;
+  font-size: .74rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--dim);
+  margin-bottom: .15rem;
+}
+
+.waiting { margin: 0; color: var(--dim); font-size: .88rem; font-style: italic; }
+.failed { margin: .4rem 0 0; color: var(--bad); font-size: .9rem; }
+
+/* ── a pause ────────────────────────────────────────────────────────────── */
+
+.pause {
+  border: 1px solid var(--warn-line);
+  background: var(--warn-wash);
+  border-radius: var(--radius);
+  padding: .8rem .9rem;
+}
+
+.pause-why { margin: 0 0 .6rem; }
+
+.pause-kind {
+  display: inline-block;
+  margin-right: .5rem;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border: 1px solid var(--warn-line);
+  border-radius: 999px;
+  padding: .05rem .5rem;
+}
+
+.pause-act { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.pause-act input { flex: 1 1 12rem; }
+.pause-note { margin: .6rem 0 0; font-size: .88rem; color: var(--dim); }
+.tools { flex: 1 1 100%; margin: 0 0 .4rem; padding-left: 1.1rem; font-size: .9rem; }
+
+/* ── composer ───────────────────────────────────────────────────────────── */
+
+.composer {
+  display: flex;
+  gap: .5rem;
+  padding: .8rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.composer input { flex: 1; }
+
+.whoami { margin: 1rem 0 0; font-size: .85rem; color: var(--dim); }
+.dim { color: var(--dim); }
+
+@media (max-width: 30rem) {
+  .shell { padding: 1rem .75rem 2rem; }
+  .mine { max-width: 100%; }
+}
