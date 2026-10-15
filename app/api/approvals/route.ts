@@ -7,6 +7,25 @@
  * an authorisation — it causes a tool to run — so it is a privileged write and
  * the browser is deliberately not able to make one. The page asks this route.
  *
+ * ── `scope: "tenant"`, AND IT IS NOT OPTIONAL HERE ───────────────────────────
+ *
+ * A confirmation raised by an END USER's run is recorded against `eu:<id>`, not
+ * against the service user that published it. So the default `scope: "mine"`
+ * finds NONE of them and the card renders with no Approve button and no error —
+ * which is how this read as "the agent never asks". Tenant scope needs admin,
+ * which this credential already has: it mints tickets and invokes for end users.
+ *
+ * ── SO OWNERSHIP IS PROVED, NOT ASSUMED ──────────────────────────────────────
+ *
+ * Tenant scope returns EVERY end user's actions, and the action row carries no
+ * `user_id` to filter on. What it does carry is `invocation_id` — so this reads
+ * the session's runs first, checks every one belongs to the caller, and shows
+ * or decides only actions whose invocation is in that set. Same proof
+ * `/api/history` uses, and the only one the API exposes.
+ *
+ * WITHOUT IT A GUESSED SESSION ID WOULD BE ENOUGH TO APPROVE SOMEBODY ELSE'S
+ * TOOL CALL, which is why this file is longer than it looks like it should be.
+ *
  * ── A TURN'S ANSWERS TRAVEL AS ONE BATCH ─────────────────────────────────────
  *
  * One model turn can raise several confirmations, and THE NEXT MESSAGE RESOLVES
@@ -28,6 +47,22 @@ import { elan } from "@/lib/elan";
 import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
 
+/**
+ * The invocations of this session that belong to the caller.
+ *
+ * `null` means the session is not theirs — answered the same way as "no such
+ * session", because distinguishing the two confirms a guessed id exists.
+ */
+async function ownedRuns(
+  sessionId: string,
+  userId: string,
+): Promise<Set<string> | null> {
+  const mine = `eu:${userId}`;
+  const page = await elan().runs.list({ sessionId, limit: 50 });
+  if (page.runs.some((run) => run.user_id !== mine)) return null;
+  return new Set(page.runs.map((run) => run.invocation_id));
+}
+
 export async function GET(request: Request) {
   const who = await read();
   if (!who) {
@@ -40,10 +75,25 @@ export async function GET(request: Request) {
   }
 
   try {
-    // SCOPED BY SESSION, which is this conversation. The service user could
-    // ask for the tenant's whole inbox; an end user's chat has no business
-    // seeing another conversation's approvals.
-    const batches = await elan().actions.batches({ sessionId, status: "pending" });
+    const owned = await ownedRuns(sessionId, who.userId);
+    if (owned === null) {
+      return NextResponse.json(
+        { error: "no conversation by that id for this identity" },
+        { status: 404 },
+      );
+    }
+
+    const all = await elan().actions.batches({
+      sessionId,
+      status: "pending",
+      // CONFIRMATIONS ONLY. A long-running tool call shares this store and this
+      // batch but is answered by a SYSTEM — putting it on an approval card
+      // shows work nobody looking at the page can do.
+      kind: "confirmation",
+      scope: "tenant",
+    });
+
+    const batches = all.filter((batch) => owned.has(batch.invocation_id));
     return NextResponse.json({ batches });
   } catch (error) {
     return failed("could not list approvals", error);
@@ -57,17 +107,20 @@ export async function POST(request: Request) {
   }
 
   let actionIds: string[] = [];
+  let sessionId = "";
   let approved = false;
   let note = "";
   try {
     const body = (await request.json()) as {
       actionIds?: unknown;
+      sessionId?: unknown;
       approved?: unknown;
       note?: unknown;
     };
     if (Array.isArray(body.actionIds)) {
       actionIds = body.actionIds.filter((id): id is string => typeof id === "string");
     }
+    if (typeof body.sessionId === "string") sessionId = body.sessionId;
     approved = body.approved === true;
     if (typeof body.note === "string") note = body.note.slice(0, 1000);
   } catch {
@@ -77,8 +130,40 @@ export async function POST(request: Request) {
   if (actionIds.length === 0) {
     return NextResponse.json({ error: "no actionIds" }, { status: 400 });
   }
+  // REQUIRED ON A DECISION, AND IT WAS NOT. Without the session there is
+  // nothing to prove the action belongs to the caller against — an action id
+  // alone would have been enough to approve a stranger's tool call.
+  if (!sessionId) {
+    return NextResponse.json({ error: "no sessionId" }, { status: 400 });
+  }
 
   try {
+    const owned = await ownedRuns(sessionId, who.userId);
+    if (owned === null) {
+      return NextResponse.json(
+        { error: "no conversation by that id for this identity" },
+        { status: 404 },
+      );
+    }
+
+    // EVERY ID CHECKED AGAINST THIS SESSION'S OWN PENDING ACTIONS, so one from
+    // another conversation cannot be smuggled into a batch the caller does own.
+    const batches = await elan().actions.batches({
+      sessionId, status: "pending", kind: "confirmation", scope: "tenant",
+    });
+    const allowed = new Set(
+      batches
+        .filter((batch) => owned.has(batch.invocation_id))
+        .flatMap((batch) => batch.actions.map((action) => action.action_id)),
+    );
+    const stranger = actionIds.find((id) => !allowed.has(id));
+    if (stranger) {
+      return NextResponse.json(
+        { error: "that action is not pending in this conversation" },
+        { status: 404 },
+      );
+    }
+
     const outcome = await elan().actions.decideBatch(actionIds, { approved, note });
     return NextResponse.json({
       batch_id: outcome.batch_id,

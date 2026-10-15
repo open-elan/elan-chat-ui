@@ -102,6 +102,9 @@ export function Approvals({
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
+            // THE SESSION TRAVELS WITH THE DECISION, because the server proves
+            // the action belongs to this caller against it.
+            sessionId,
             // THE WHOLE BATCH, never one member. The next message resolves
             // every confirmation a turn raised, so answering one of two
             // silently abandons the other while the run reports finished.
@@ -131,7 +134,10 @@ export function Approvals({
         setBusy(false);
       }
     },
-    [],
+    // `sessionId` IS A DEPENDENCY NOW. It was `[]` when this closed over
+    // nothing but its argument; a stale empty-dep callback would send the
+    // session of whichever conversation was open when it was first created.
+    [sessionId],
   );
 
   const answer = useCallback(async () => {
