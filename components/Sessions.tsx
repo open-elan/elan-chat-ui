@@ -9,8 +9,17 @@
  */
 
 import { useSyncExternalStore } from "react";
+import { Plus, X } from "lucide-react";
 
-import { conversations } from "@/lib/sessions";
+import { conversations, type Conversation } from "@/lib/sessions";
+
+// THE SERVER SNAPSHOT IS EMPTY, and it has to be: this list lives in
+// `localStorage`, which the server cannot read. Returning the client's value
+// would be a hydration mismatch. It is ONE array, made once — React compares
+// snapshots by identity, and a fresh `[]` per call reads as a change every
+// time, which is the infinite loop it warns about.
+const NONE: readonly Conversation[] = [];
+const serverSnapshot = () => NONE;
 
 export function Sessions({
   active,
@@ -24,15 +33,13 @@ export function Sessions({
   const all = useSyncExternalStore(
     conversations.subscribe,
     conversations.snapshot,
-    // THE SERVER SNAPSHOT IS EMPTY, and it has to be: this list lives in
-    // `localStorage`, which the server cannot read. Returning the client's
-    // value here would be a hydration mismatch.
-    () => [] as readonly ReturnType<typeof conversations.snapshot>[number][],
+    serverSnapshot,
   );
 
   return (
-    <aside className="rail">
+    <div className="rail-body">
       <button type="button" className="new" onClick={onNew}>
+        <Plus size={16} aria-hidden="true" />
         New chat
       </button>
 
@@ -60,11 +67,11 @@ export function Sessions({
               aria-label={`Remove ${item.title || item.id} from this list`}
               onClick={() => conversations.forget(item.id)}
             >
-              ×
+              <X size={15} aria-hidden="true" />
             </button>
           </li>
         ))}
       </ul>
-    </aside>
+    </div>
   );
 }

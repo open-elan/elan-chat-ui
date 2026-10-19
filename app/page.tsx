@@ -43,14 +43,13 @@ export default async function Page() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell shell-app">
       <Provider baseUrl={baseUrl}>
-        <Workspace agent={agent} />
+        {/* The label and id were already rendered into this page; handing
+            them to the client as props reveals nothing new. The secret stays
+            here. */}
+        <Workspace agent={agent} who={{ label: who.label, userId: who.userId }} />
       </Provider>
-      <p className="whoami">
-        watching as <strong>{who.label}</strong>{" "}
-        <span className="dim">({who.userId})</span>
-      </p>
     </main>
   );
 }

@@ -1,7 +1,10 @@
 # elan chat example
 
 A chat UI for one agent: send it a message, watch its reply arrive live, and
-answer it when it stops to ask.
+answer it when it stops to ask. Alongside the transcript it shows the agent's
+own card, the end user's credits and statement, and **what that person has let
+the agent do on its own** — which is the half most likely to be built wrong,
+and has its own section below.
 
 **The browser watches with a ticket; the server acts with a secret.** That split
 is the whole subject of this example — not the chat, which is twenty lines of
@@ -36,7 +39,16 @@ user's credentials that never leave the server:
 
   POST /api/approvals ─────────► actions.decideBatch(...) ───────► /v1/actions/…
   POST /api/resume ────────────► runtime.resume(id, {payload}) ──► /v1/invocations/…/resume
+
+  GET  /api/agent ─────────────► agents.get(slug) ───────────────► /v1/agents
+  GET  /api/permissions ───────► agents.get + autonomy.policies ─► /v1/agents
+                                                                   /v1/autonomy/policies
+  POST /api/permissions ───────► autonomy.reset(id, {user}) ─────► /v1/autonomy/policies/…/reset
+  GET  /api/wallet ────────────► wallets.get + wallets.statement ► /v1/projects/{p}/wallets/…
 ```
+
+Every one of those server calls refuses a ticket, which is why each is a route
+here rather than a `fetch` from a component.
 
 **`end_user_id` is what makes this work rather than a detail.** Naming an end
 user on an invocation addresses that run's events to `eu:<id>` — to *them*, not
@@ -66,6 +78,13 @@ git clone <the platform repo> ../elan-platform
 cd ../elan-platform && make sdk-ts-build    # produces sdk/typescript/dist
 cd -
 ```
+
+> **Re-run `pnpm install` after every `make sdk-ts-build`.** A `file:`
+> dependency is copied into `node_modules`, not symlinked, and pnpm refreshes
+> it per the files it knew about at install time — so a NEW module in the SDK
+> can be missing while the updated `index.js` that imports it is present. The
+> failure is `module-not-found` naming a file that is plainly there on disk, in
+> the other checkout.
 
 When the SDKs publish this becomes one line in `package.json`
 (`"elan-sdk": "^0.1.0"`) and the clone goes away.
@@ -106,6 +125,34 @@ point the app at somebody else's wallet.
 
 ---
 
+## What is in it
+
+Nothing here is framework-clever. The server routes are the product; the
+components are a thin reading of an event stream.
+
+| | |
+|---|---|
+| `lib/elan.ts` | The one module holding a secret. One client per process, because it caches the token. |
+| `lib/identity.ts` | Who the end user is, from a signed httpOnly cookie. **Replace this with your auth.** |
+| `lib/failure.ts` | A thrown thing → a status a reader can act on. Not everything is a `502`. |
+| `lib/sessions.ts` | The conversation list, in `localStorage`. **In a real app this is your database.** |
+| `lib/tools.ts` | Pairs `function_call` with `function_response` on the call id. No React in it. |
+| `lib/permissions.ts` | Folds the declaration and the stored grants into one row per tool. No React in it. |
+| `lib/changed.ts` | One event name, so the approval card and the settings panel agree. |
+| `app/api/session`, `/ticket` | Sign in; mint the browser's ~300s stream credential. |
+| `app/api/invoke`, `/resume` | Start a run; answer a workflow input pause with data. |
+| `app/api/approvals` | List what a run is waiting on, and decide a whole batch. |
+| `app/api/history` | The durable read, with the ownership check that must precede it. |
+| `app/api/agent`, `/permissions` | The agent's card; what it may do and what this person allowed. |
+| `app/api/wallet` | Credits and statement. Read-only by construction. |
+| `components/Workspace.tsx` | The rail and the transcript. |
+| `components/Chat.tsx` | The transcript, folded from events rather than kept in a list. |
+| `components/Approvals.tsx` | The three kinds of pause, and the different call each needs. |
+| `components/Tools.tsx`, `Markdown.tsx` | What the agent did; rendering a reply safely. |
+| `components/AgentCard.tsx`, `Permissions.tsx` | The two rail panels about the agent itself. |
+
+---
+
 ## What to read, in order
 
 1. **[`lib/elan.ts`](lib/elan.ts)** — the only module that holds a secret, and
@@ -128,6 +175,12 @@ point the app at somebody else's wallet.
    **yours** and not the platform's.
 9. **[`lib/tools.ts`](lib/tools.ts)** — pairing a tool's call with its result,
    and why the fold has no React in it.
+10. **[`app/api/permissions/route.ts`](app/api/permissions/route.ts)** — the two
+    sources a permissions page needs, and why neither alone is honest.
+11. **[`lib/permissions.ts`](lib/permissions.ts)** — the resolution order as far
+    as a page can know it, and the one step it deliberately cannot do.
+12. **[`lib/failure.ts`](lib/failure.ts)** — why a thrown thing is not always a
+    `502`, learned by answering one for a fault in `.env.local`.
 
 ---
 
@@ -146,6 +199,12 @@ Each of these cost somebody real time before it was written down.
 | **An `abandoned` status can follow an approval** — the engine refuses a batch with a later user turn — and it means nothing ran. | Reported rather than shown as a tick. |
 | **A resume carries data, not just consent.** `payload` becomes the paused node's own output and flows to the next node. | The `input` card sends a value. |
 | **A resume can be refused for funds where the first turn was not.** A pause settles and holds nothing, so the resumed turn reserves on its own merits. | `/api/resume` maps that to a `402`. |
+| **`actions.batches` defaults to `scope: "mine"`,** and a confirmation raised by an END USER's run is recorded against `eu:<id>` — not against the service user that published it. The default therefore finds none of them, and the card renders with no Approve button and no error, which reads as "the agent never asks". | Tenant scope, which this credential already has. |
+| **…and tenant scope returns EVERY end user's actions.** The action row carries no `user_id` to filter on, so taking it without a second thought is worse than the bug. | The session's runs are read first, every one checked against `eu:<caller>`, and only actions whose invocation is in that set are shown or decided. |
+| **The browser learns of a pause BEFORE the action row exists.** `action_requested` and the terminal `paused` travel the same ordered topic to different consumers — rt-service relays the pause straight down the socket while actions-service has to commit a row — so a single fetch fired on the pause asks for something that is not there yet. | A short retry schedule, stopping on the first hit, and a sentence rather than a silent empty card if it never arrives. |
+| **A standing grant is stored unclamped and clamped on read.** "Always approve" on a tool the author capped is written, accepted, and then has no effect. | The button is offered only where the ceiling permits, and a tool it cannot free is named. |
+| **A grant takes effect within ~30s, not instantly.** The pod refreshes its policy snapshot once per run on a 30-second TTL. | Worth knowing before you conclude a grant did not save. |
+| **The recorded manifest only changes when a target MOVES.** A redeploy with no source change keeps the facts it had — deliberately, since this deploy's manifests describe a build the target is not running. | A new manifest field reaches an agent on its next real deploy, not on the next `elan deploy`. |
 
 ---
 
@@ -223,11 +282,136 @@ element. If you ever add `rehype-raw`, add a sanitiser with it.
 
 ---
 
+## Permissions: what the agent may do on its own
+
+The rail carries two panels about the agent itself — **About this agent**
+([`AgentCard.tsx`](components/AgentCard.tsx)) and **Action settings**
+([`Permissions.tsx`](components/Permissions.tsx)). The second is the
+interesting one, and it is the part of this example most likely to be wrong in
+a real app.
+
+### A tier does not make a tool ask
+
+This is the thing to take away, and it cost a deploy to find out.
+
+Autonomy resolves to one of three outcomes: `t0` **refuses**, `t1` **asks**,
+`t2` **allows**. The natural reading of "the agent's default tier is t1, so it
+asks" is wrong. The plugin blocks at `refuse`, pre-confirms at `allow`, and
+**does nothing at all in between** — `ask` is the status quo. So a tool that
+never requests a confirmation is unaffected by every tier except `t0`, however
+it is declared.
+
+A tool that should pause has to ask for itself:
+
+```python
+confirmation = tool_context.tool_confirmation
+if confirmation is None:
+    tool_context.request_confirmation(hint="Log a sighting of 3 clownfish (reef)?")
+    tool_context.actions.skip_summarization = True
+    return {"status": "awaiting_approval"}
+if not confirmation.confirmed:
+    return {"status": "declined"}
+# ... only here does anything happen
+```
+
+**The hint IS the approval card**, which is why a tool asks from its own body
+rather than setting `require_confirmation=True`: ADK's default hint is written
+for a developer ("…by responding with a FunctionResponse with an expected
+ToolConfirmation payload") and is shown to a person verbatim. Asking from the
+body also lets the tool validate first, so nothing impossible is ever put up
+for approval.
+
+**And the body runs twice** — once to ask, once to act. Anything that changes
+state before the confirmation check happens whether or not a person said yes.
+
+### Declare the tools that ACT, and only those
+
+A tool that acts is declared whether or not it ever pauses, because `t0` has to
+be able to refuse it. A tool that only reads should be left out, and that is
+not laziness — declaring a read buys no pause and costs three things: the
+agent card claims the tool acts, at `t2` every single lookup files an
+"approved automatically" audit row, and at `t0` the read is refused while an
+undeclared one would still be allowed.
+
+### A permissions page needs two sources, and neither alone is honest
+
+| | |
+|---|---|
+| `GET /v1/agents` | what the AUTHOR declared — tier, **ceiling**, labels, refusals |
+| `GET /v1/autonomy/policies` | what the PERSON stored — their grants, and the tenant cap |
+
+Built on stored grants alone the page is worse than none. A stored policy is
+clamped to the tool's declared **ceiling**, and a caller's own ceiling is
+stripped on the way in so the author's is re-imposed on every call — so the
+page would show somebody their own "acts without asking" beside a tool that
+keeps asking them, with nothing on screen to account for the difference.
+
+[`lib/permissions.ts`](lib/permissions.ts) folds the two. It reproduces the
+resolver's steps 2 and 3 exactly — stricter of the scopes that stored
+something, clamped to the ceiling; else the declared tier, else the default —
+and deliberately **cannot** do step 1: a declared refusal is a condition on the
+arguments of a call that has not happened, so the conditions are listed rather
+than evaluated. Only stored policies are clamped; the manifest's own tier is
+not, because it is already code.
+
+Absence is the other half. **A scope with no stored policy has NO OPINION**,
+never a default one — the store is copy-on-write and a row exists only because
+somebody chose something. So an untouched tool reads "as the agent ships", and
+revoking returns it to that rather than writing a default in its place.
+
+### "Always approve" is gated on the ceiling
+
+The approval card offers a third button, which records a standing grant for
+that tool. Two things about it:
+
+- **It is written against whose card it was**, not against whoever clicked. An
+  admin deciding a colleague's card would otherwise grant *themselves*
+  autonomy while leaving the colleague asked about every call.
+- **It is stored unclamped and clamped on every read.** On a tool the author
+  capped, the row is written, the API answers `200`, and the agent goes on
+  asking about the very thing somebody just said always to allow. So the button
+  is only offered where a grant would actually take effect, and any tool it
+  cannot free is **named** — silently omitting it means you grant, see it ask
+  again, and cannot tell a cap from a bug.
+
+### A grant is not instantaneous
+
+The agent pod caches the policies bearing on a run and refreshes **once per
+run, with a 30-second TTL**. A message sent within half a minute of a grant
+still resolves against the pre-grant snapshot and asks again; the next one does
+not. There is a second bound at 300 seconds: a snapshot older than that can
+still *refuse* but no longer *grants*, so if the policy store were unreachable,
+standing grants degrade to asking rather than silently persisting.
+
+### An automatic approval is still recorded
+
+A policy deciding to allow emits `action_requested` and `action_resolved` with
+`automatic` set and the reason attached — "approved automatically, your policy
+(t2)" — rather than the call simply never appearing. That is exactly the
+distinction between a policy *deciding* to allow and a tool that was never
+gated, and it is why declaring a read is not free.
+
+---
+
 ## What it deliberately does not do
 
-**It does not touch `/observability` or `/ledger`.** Those are not publicly
-routed, and the one host that did expose them was deleted for that reason. Cost,
-traces and balances are the console's job and a different credential's reach.
+**It does not touch `/observability` or `/ledger`.** Those prefixes are not
+publicly routed, and the one host that did expose them was deleted for that
+reason. Traces and platform cost stay the console's job.
+
+The rail *does* show the end user's **credits and statement** — through
+`elan.wallets`, which is `/v1/projects/{project}/wallets/…` on the public API,
+an authenticated door that checks a token and scopes to a project. The
+distinction is the point: a prefix nothing routes is not a shortcut, and an
+example is where a shortcut gets copied from. `elan.wallets` also issues no
+non-GET at all — the writes live on `elan.credit`, which this app never
+imports, because topping up is an administrative act on your own customers and
+not something a chat UI does for whoever is looking at it.
+
+The held amount is shown rather than hidden, because a prepaid run RESERVES
+before it spends: for the length of a turn the balance is unchanged and the
+available figure is lower, and showing only "available" makes that read as money
+vanishing and coming back.
 
 **It does not use `useRun`**, even though `elan-sdk/react` exports it. A
 provider given only a `ticket` installs a placeholder token for the HTTP side —

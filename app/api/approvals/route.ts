@@ -43,7 +43,7 @@
 
 import { NextResponse } from "next/server";
 
-import { elan } from "@/lib/elan";
+import { elan, target } from "@/lib/elan";
 import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
 
@@ -94,7 +94,18 @@ export async function GET(request: Request) {
     });
 
     const batches = all.filter((batch) => owned.has(batch.invocation_id));
-    return NextResponse.json({ batches });
+
+    // THE DECLARED CEILING TRAVELS WITH THE CARD, so "always approve" can be
+    // offered only where a standing grant would actually take effect. The
+    // grant is written UNCLAMPED (`tier: "t2"`) and clamped on every read
+    // against the tool's declared ceiling — so offering it on a capped tool
+    // writes a row that changes nothing and leaves somebody watching an agent
+    // keep asking about a thing they just said always to allow.
+    const agent = await elan().agents.get(target());
+    return NextResponse.json({
+      batches,
+      declared: agent?.manifest.action_policies ?? null,
+    });
   } catch (error) {
     return failed("could not list approvals", error);
   }
@@ -109,12 +120,14 @@ export async function POST(request: Request) {
   let actionIds: string[] = [];
   let sessionId = "";
   let approved = false;
+  let approveAll = false;
   let note = "";
   try {
     const body = (await request.json()) as {
       actionIds?: unknown;
       sessionId?: unknown;
       approved?: unknown;
+      approveAll?: unknown;
       note?: unknown;
     };
     if (Array.isArray(body.actionIds)) {
@@ -122,6 +135,10 @@ export async function POST(request: Request) {
     }
     if (typeof body.sessionId === "string") sessionId = body.sessionId;
     approved = body.approved === true;
+    // ONLY WITH AN APPROVAL. The service ignores it on a rejection, and
+    // sending it anyway would read here as though rejecting could grant
+    // something.
+    approveAll = body.approveAll === true && approved;
     if (typeof body.note === "string") note = body.note.slice(0, 1000);
   } catch {
     // Handled by the check below.
@@ -164,13 +181,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const outcome = await elan().actions.decideBatch(actionIds, { approved, note });
+    // APPLIED PER ACTION, which is what a mixed turn needs: the SDK decides
+    // each member in order and each one's own tool gets its own standing
+    // grant. The grant is written against WHOSE CARD IT WAS — the end user —
+    // and not against this service user, which is the only reading that makes
+    // "stop asking me" mean the person who said it.
+    const outcome = await elan().actions.decideBatch(actionIds, {
+      approved, note, approveAll,
+    });
     return NextResponse.json({
       batch_id: outcome.batch_id,
       complete: outcome.complete,
       // NOTHING RAN UNTIL THIS IS TRUE. The decision is recorded either way.
       published: outcome.published,
       decisions: outcome.decisions,
+      // THE STANDING GRANT, not this decision. Absent when none was asked for
+      // or when recording one failed — which does NOT undo the approval.
+      granted: outcome.decisions.some((decision) => decision.rule_id),
     });
   } catch (error) {
     // A 409 means somebody — or the engine's own abandonment — got there

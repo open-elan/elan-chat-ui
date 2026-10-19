@@ -10,6 +10,8 @@
  * The fold lives in `lib/tools.ts`, which has no React in it.
  */
 
+import { ChevronRight } from "lucide-react";
+
 import { preview, type ToolUse } from "@/lib/tools";
 
 export function Tools({ used }: { used: ToolUse[] }) {
@@ -21,6 +23,7 @@ export function Tools({ used }: { used: ToolUse[] }) {
   return (
     <details className="tools-used">
       <summary>
+        <ChevronRight className="tools-caret" size={14} aria-hidden="true" />
         <span className="tools-verb">Used</span> {names.join(", ")}
         {outstanding > 0 && (
           // AN OUTSTANDING CALL IS NOT A FAILURE. A long-running tool is

@@ -1,0 +1,270 @@
+/* OCE NATURAL. THE ONLY FILE A THEME NEEDS TO REPLACE.
+ *
+ * Copied from the console's own `tokens.css`, unchanged, so this example
+ * looks like the product it talks to. `globals.css` reads these and nothing
+ * else — it declares no colour, radius or font of its own — so supplying a
+ * theme means rewriting this file, and the way to check that it is complete
+ * is that no other stylesheet contains a hex code.
+ *
+ * NAMED BY ROLE, NOT BY APPEARANCE. `--surface-raised` rather than `--white`:
+ * a token called white cannot be dark, so the second theme either renames
+ * everything or lies.
+ *
+ * ── THE PALETTE ───────────────────────────────────────────────────────────
+ *
+ *   natural green  #1db954   the one brand colour
+ *   deep green     #0f7a36   the same green, dark enough to be read as text
+ *   ink            #101110   neutral near-black, the dark ground
+ *   paper          #fbfbfa   neutral near-white, the light ground
+ *
+ * Flat and neutral: no gradients, no glass, no tinted greys. Borders first,
+ * small shadows only where they clarify grouping.
+ *
+ * ── THE ONE THING THAT CANNOT BE EYEBALLED ────────────────────────────────
+ *
+ * NATURAL GREEN IS NOT READABLE AS TEXT ON A LIGHT GROUND. #1db954 on paper
+ * measures 2.6:1 — it looks green enough and it fails. So the green has TWO
+ * roles and two tokens, and conflating them is the mistake this palette
+ * invites:
+ *
+ *   --accent         THE FILL. Exactly #1db954 in both themes. Buttons,
+ *                    checked controls, meters, the active nav marker.
+ *   --accent-strong  THE TEXT. Links, text buttons, leading icons, focus
+ *                    rings, a spinner's arc. #0f7a36 in light (5.3:1 on the
+ *                    ground); #1db954 in dark, where it is already 7.3:1.
+ *
+ * AND TEXT ON THE FILL IS NEITHER WHITE NOR BLACK. White on #1db954 is 2.6:1.
+ * `--accent-text` is a deep forest green, tonal with the fill, at 5.4:1.
+ *
+ * Every semantic pair here is at or above 4.5:1 against the ground it appears
+ * on, in both themes; the console's theming tests recompute them, so edit the
+ * values there and copy them here rather than tuning them in this repo.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── the brand ──────────────────────────────────────────────────────────
+     Four values, not a ramp. The previous palette stepped a brand green by
+     lightness because it needed a different step per theme for one role; this
+     one has a named token per role instead, which is the same idea with the
+     arithmetic already done. */
+  --natural-green: #1db954;
+  --natural-green-deep: #0f7a36;
+  --natural-green-forest: #0a3319;
+  --natural-ink: #101110;
+  --natural-paper: #fbfbfa;
+
+  /* Ground and the things that sit on it. NEUTRAL, with no colour cast —
+     paper and ink are near-white and near-black with no warmth or coolness
+     mixed in, so the one green is the only hue on the page.
+
+     RAISED IS PURE WHITE, which is what makes a panel legible against the
+     ground without a shadow. */
+  --surface: #fbfbfa;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f5f5f3;
+  /* MENUS AND POPOVERS, which in dark sit a step ABOVE a card rather than
+     level with it: a menu opening over a panel of the same colour has only its
+     border to separate it, and that border is 1px of near-black on near-black. */
+  --surface-overlay: #ffffff;
+  --border: #e3e4e1;
+  /* FORM-CONTROL OUTLINES AND THE BORDER OF A QUIET BUTTON. Darker than
+     `--border` on purpose: a divider wants to be seen past, a control's edge
+     wants to be seen, and 3:1 is the non-text threshold that makes the
+     difference. */
+  --border-strong: #8b8e89;
+
+  /* Text, by how much attention it wants. */
+  --text: #101110;
+  --text-muted: #5a5d59;
+  --text-inverted: #f5f5f3;
+
+  /* ── the one accent, in its two roles ──────────────────────────────────── */
+  --accent: var(--natural-green);
+  --accent-strong: var(--natural-green-deep);
+  --accent-text: var(--natural-green-forest);
+  /* A WASH, FOR SELECTED ROWS AND HOVERED MENU ITEMS: the accent at 14% over
+     the surface it sits on. A mix rather than a literal so it stays correct
+     over a white panel and over a near-black one from the same declaration. */
+  --accent-wash: color-mix(in srgb, var(--natural-green) 14%, var(--surface-raised));
+
+  /* ── status ─────────────────────────────────────────────────────────────
+     FOUR MEANINGS, EACH WITH A STRONG COLOUR AND A SOFT GROUND. The strong one
+     is text, an icon or a dot; the soft one is a ground that carries ordinary
+     `--text` on top. A badge coloured only by its text has to borrow its own
+     colour for a border and ends up shouting; a soft ground says the same
+     thing quietly and keeps the label readable.
+
+     NEVER COLOUR ALONE. Every status in this console also carries a word. */
+  --positive: #0f7a36;
+  --positive-soft: #d9eadf;
+  --caution: #99680b;
+  --caution-soft: #efe7d8;
+  --negative: #c9302a;
+  --negative-soft: #f6dedd;
+  --negative-text: #ffffff;
+  --info: #2b6fb8;
+  --info-soft: #dde8f4;
+
+  /* AMBER IS A FILL OR A DOT AND NEVER TEXT. #f2b84b on paper is 1.8:1, so
+     there is no light-mode text role for it at all — warning text is
+     `--caution`. It exists for a rule above a metric and a dot beside a label,
+     where the shape carries the meaning and the colour only tints it. */
+  --attention: #f2b84b;
+  --attention-text: #101110;
+
+  /* ── navigation ─────────────────────────────────────────────────────────
+     NEAR-BLACK IN BOTH THEMES, which is the one place this palette is not
+     symmetrical. The rail is a different KIND of surface from the page: it
+     frames the content rather than holding it, and keeping it dark in light
+     mode is what stops a white rail against a white page needing a border to
+     exist at all. */
+  --rail: #101110;
+  --rail-text: #f5f5f3;
+  --rail-muted: #a9aba7;
+  --rail-border: #262726;
+  --rail-wash: #1f2a23;
+  --rail-marker: var(--natural-green);
+  /* THE RAIL NEEDS ITS OWN RED, and this is the kind of thing a dark rail in a
+     light theme quietly breaks. `--negative` is #c9302a in light — chosen
+     against paper, where it is 5.2:1 — and on the near-black rail it is 3.55:1.
+     So sign-out, the one destructive thing in the rail, gets the red that was
+     chosen against ink: 6.2:1 here and unchanged between themes, because the
+     surface it sits on is unchanged too. */
+  --rail-negative: #f2675f;
+
+  /* Code, which is its own surface in both themes — a block of YAML is read
+     differently from a paragraph, and the ground is what says so. */
+  --code-surface: #101110;
+  --code-text: #f5f5f3;
+
+  /* ── charts ─────────────────────────────────────────────────────────────
+     FIVE SERIES, ORDERED SO THE FIRST TWO ARE DISTINGUISHABLE WITHOUT COLOUR
+     VISION: green then amber is a lightness difference as well as a hue one. */
+  --chart-1: #0f7a36;
+  --chart-2: #c88a12;
+  --chart-3: #2b6fb8;
+  --chart-4: #c9302a;
+  --chart-5: #5a5d59;
+
+  /* ── overlays ───────────────────────────────────────────────────────────
+     HOVER AND PRESS ARE AN OVERLAY, NOT A SECOND COLOUR. The alternative is a
+     hover value per variant — a darker green, a darker red, a darker grey —
+     which is five more tokens to keep in contrast and, for the primary button,
+     a fill that is no longer exactly #1db954. A translucent black or white
+     over whatever is underneath does the same job from one pair. */
+  --elevate-1: rgb(16 17 16 / 0.03);
+  --elevate-2: rgb(16 17 16 / 0.08);
+  --button-outline: rgb(16 17 16 / 0.1);
+
+  /* Shape and rhythm. Components reference these so a theme can make the
+     whole console rounder or tighter without touching a component. */
+  --radius: 8px;
+  --radius-small: 6px;
+  --radius-chip: 6px;
+  --radius-pill: 999px;
+  --space: 4px;
+  --border-width: 1px;
+
+  /* ── type ───────────────────────────────────────────────────────────────
+     GOOGLE SANS FOR EVERYTHING, Menlo for mono. Verified served from Google
+     Fonts at 400/500/600/700 — the hand-off could not confirm it, and it is
+     there. Google Sans Flex is the first fallback because the two are
+     metrically close, so a missing primary does not reflow the page.
+
+     IT TOPS OUT AT 700, so nothing here asks for 800. */
+  --font: "Google Sans", "Google Sans Flex", system-ui, -apple-system,
+          "Segoe UI", sans-serif;
+  --font-mono: Menlo, ui-monospace, SFMono-Regular, "SF Mono", monospace;
+  --text-size: 14px;
+  --text-size-small: 12.5px;
+  --text-size-tiny: 11.5px;
+  /* THE ONE SIZE A FIGURE IS READ AT. A dashboard card inverts the usual
+     weighting — the number is the content and the label is the caption — and
+     that only works if the number is large enough to be read as a shape
+     rather than parsed as text. */
+  --text-size-stat: 23px;
+  --line-height: 1.5;
+  /* Display type only — page titles and metric values. Tightened because a
+     geometric sans at 20px and above reads loose at its default tracking. */
+  --tracking-display: -0.03em;
+
+  --shadow-raised: 0 1px 2px rgb(16 17 16 / 0.04);
+  --shadow-overlay: 0 8px 24px -6px rgb(16 17 16 / 0.14);
+  /* What a modal lays over the page. DARKER ON THE DARK THEME, not lighter:
+     the job is to separate the dialog from what is behind it, and a scrim
+     tuned against paper barely registers against ink. */
+  --scrim: rgb(16 17 16 / 0.42);
+
+  /* ── motion ─────────────────────────────────────────────────────────────
+     SNAPPED AND SHORT, because this is a control plane. The register is
+     "something happened and it is already done", not "watch this transition":
+     somebody is here to read a digest or stop a bad deploy, and animation
+     that delays an answer is a cost with no benefit.
+
+     Durations are held here so a theme can slow the whole thing down, and so
+     the reduced-motion rule in globals.css has one place to zero. */
+  --motion-fast: 90ms;
+  --motion: 160ms;
+  --motion-slow: 260ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* DARK IS A TOKEN OVERRIDE, NOT A SECOND STYLESHEET. Only the values that
+   differ are restated, so a component added tomorrow is themed in both. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface: #101110;
+  --surface-raised: #181918;
+  --surface-sunken: #1b1c1b;
+  --surface-overlay: #1c1d1c;
+  --border: #2b2c2b;
+  --border-strong: #727470;
+
+  --text: #f5f5f3;
+  --text-muted: #a9aba7;
+  --text-inverted: #101110;
+
+  /* THE FILL DOES NOT CHANGE — that is the point of the palette. What changes
+     is the TEXT role: #0f7a36 against ink is 2.0:1, so in dark the green that
+     reads as text is the brand green itself. */
+  --accent-strong: var(--natural-green);
+
+  --positive: #1db954;
+  --positive-soft: #193c25;
+  --caution: #f2b84b;
+  --caution-soft: #483c23;
+  --negative: #f2675f;
+  --negative-soft: #482a28;
+  --negative-text: #101110;
+  --info: #5aa7f0;
+  --info-soft: #273848;
+
+  /* Amber is legible as text here, but it stays a fill for consistency: a
+     colour that means "attention" on one theme and "warning text" on the other
+     is two meanings wearing one token. */
+  --attention: #f2b84b;
+
+  /* A SHADE DARKER THAN THE PAGE, not lighter. The rail is the frame; against
+     an ink page a lighter rail would read as a panel that failed to end. */
+  --rail: #0a0a0a;
+  --rail-border: #222322;
+
+  --code-surface: #181918;
+
+  --chart-1: #1db954;
+  --chart-2: #f2b84b;
+  --chart-3: #5aa7f0;
+  --chart-4: #f2675f;
+  --chart-5: #a9aba7;
+
+  --elevate-1: rgb(255 255 255 / 0.04);
+  --elevate-2: rgb(255 255 255 / 0.09);
+  --button-outline: rgb(255 255 255 / 0.1);
+
+  --shadow-raised: none;
+  --shadow-overlay: 0 8px 24px -6px rgb(0 0 0 / 0.4);
+  --scrim: rgb(0 0 0 / 0.66);
+}
