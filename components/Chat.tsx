@@ -48,6 +48,8 @@ interface Turn {
   continued: boolean;
   /** When this turn's first event was emitted (ms), for ordering. */
   at: number;
+  /** This half of the run stopped to wait for somebody. */
+  paused: boolean;
   invocationId: string;
   said: string;
   replied: string;
@@ -111,6 +113,7 @@ function fold(events: readonly AgentEvent[]): Turn[] {
       byRun.set(id, {
         key: id,
         continued: Boolean(event.segment),
+        paused: false,
         at: timeOf(event),
         // THE RUN, NOT THE KEY. A continuation is a separate bubble and the
         // same invocation; anything looking up the run by this must still
@@ -147,6 +150,12 @@ function fold(events: readonly AgentEvent[]): Turn[] {
         break;
       case "finished":
         turn.ended = true;
+        break;
+      case "paused":
+        // NOT `ended` — the run is suspended, not over, and the tools row
+        // waits for the half that finishes. But it is emphatically not
+        // QUEUED: a pause proves the agent started.
+        turn.paused = true;
         break;
       default:
         break;
@@ -245,7 +254,8 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
       .filter((item) => !known.has(item.id))
       .map<Turn>((item) => ({
         // An unsent echo belongs at the end: it has not happened yet.
-        key: item.id, continued: false, at: Number.POSITIVE_INFINITY,
+        key: item.id, continued: false, paused: false,
+        at: Number.POSITIVE_INFINITY,
         invocationId: item.id, said: item.said, replied: "", author: "",
         failure: "", status: "", ended: false,
       }));
@@ -356,7 +366,14 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
             {/* The one event rt-service sends itself, because a scaled-to-zero
                 agent has no pod to send one. Only while nothing else has
                 happened — otherwise it lingers under a finished turn. */}
-            {!turn.status && !turn.replied && !turn.failure && !turn.ended && (
+            {/* A PAUSED TURN IS NOT A QUEUED ONE, and it used to be covered
+                by `ended`: a run's two halves were one turn, so the
+                continuation's `finished` ended it. They are two bubbles now,
+                and the half holding the pause never finishes — so a turn whose
+                model spoke only a function call showed "Queued" for ever
+                underneath an approval that had already been answered. */}
+            {!turn.status && !turn.replied && !turn.failure && !turn.ended
+              && !turn.paused && (
               <p className="waiting" aria-live="polite">
                 <span className="typing">
                   <span className="dots" aria-hidden="true">
