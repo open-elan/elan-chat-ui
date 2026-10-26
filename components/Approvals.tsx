@@ -133,18 +133,37 @@ function freeable(declared: Record<string, Declared> | null, tool: string): bool
 }
 
 function pauseIn(events: readonly AgentEvent[], invocationId: string): Waiting | null {
+  // ── A PAUSE SOMEBODY ANSWERED IS NOT A PAUSE ────────────────────────────
+  //
+  // The resume's events carry the interrupt id as their `segment`, so their
+  // presence IS the answer — no status call, no second source of truth.
+  //
+  // This used to be covered for free and is not any more: the caller passed
+  // `settled` from its own turn, and a run's two halves were one turn, so the
+  // continuation's `finished` cleared the panel. They are two bubbles now, by
+  // design, and the half holding the pause never finishes — so the amber
+  // "someone is reviewing this" panel stayed up underneath the answer that
+  // had already arrived.
+  const answered = new Set(
+    events
+      .filter((event) => event.invocation_id === invocationId && event.segment)
+      .map((event) => event.segment),
+  );
+
   // THE DISCRIMINATOR IS THE PAYLOAD KEY, not the position or the count.
   for (const event of events) {
     if (event.invocation_id !== invocationId || event.kind !== "paused") continue;
     const payload = (event.payload ?? {}) as Record<string, unknown>;
     if (!(PAUSE_IS_TERMINAL in payload)) continue;
+    const interruptId = String(payload["interrupt_id"] ?? "");
+    if (answered.has(interruptId)) continue;
     return {
       kind: String(payload[PAUSE_IS_TERMINAL] ?? ""),
       // The engine copies the node's prompt onto the terminal payload for
       // exactly this reader — only the FIRST paused event carries it, so a
       // client reading the last event it saw would otherwise show fallback copy.
       message: String(payload["message"] ?? ""),
-      interruptId: String(payload["interrupt_id"] ?? ""),
+      interruptId,
     };
   }
   return null;

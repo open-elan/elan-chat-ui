@@ -46,6 +46,8 @@ interface Turn {
   key: string;
   /** True for the half of a run that resumed after somebody answered it. */
   continued: boolean;
+  /** When this turn's first event was emitted (ms), for ordering. */
+  at: number;
   invocationId: string;
   said: string;
   replied: string;
@@ -86,6 +88,16 @@ interface Turn {
  * by timestamp — which is why a RELOAD showed the right order and the live
  * view did not.
  */
+/** When an event happened, in ms, or 0 if it cannot be read.
+ *
+ * PARSED RATHER THAN COMPARED AS TEXT. ISO strings sort correctly only while
+ * every one of them carries the same offset, and nothing here promises that —
+ * a `+05:30` beside a `Z` would order the conversation by timezone. */
+function timeOf(event: AgentEvent): number {
+  const at = Date.parse(event.emitted_at ?? "");
+  return Number.isNaN(at) ? 0 : at;
+}
+
 function fold(events: readonly AgentEvent[]): Turn[] {
   const order: string[] = [];
   const byRun = new Map<string, Turn>();
@@ -99,6 +111,7 @@ function fold(events: readonly AgentEvent[]): Turn[] {
       byRun.set(id, {
         key: id,
         continued: Boolean(event.segment),
+        at: timeOf(event),
         // THE RUN, NOT THE KEY. A continuation is a separate bubble and the
         // same invocation; anything looking up the run by this must still
         // find it.
@@ -231,11 +244,25 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     const echoes = pending
       .filter((item) => !known.has(item.id))
       .map<Turn>((item) => ({
-        key: item.id, continued: false,
+        // An unsent echo belongs at the end: it has not happened yet.
+        key: item.id, continued: false, at: Number.POSITIVE_INFINITY,
         invocationId: item.id, said: item.said, replied: "", author: "",
         failure: "", status: "", ended: false,
       }));
-    return [...folded, ...echoes];
+    // ── ORDERED BY TIME, NOT BY WHERE THEY CAME IN THE ARRAY ──────────────
+    //
+    // History arrives GROUPED BY RUN — one `GET /v1/runs/{id}` per run,
+    // concatenated — so a continuation answered half an hour later sits
+    // inside its own run's block, which is positioned where that run STARTED.
+    // Splitting the bubble was not enough on its own: the new bubble was
+    // simply drawn early instead of merged early. Measured: "Published 1
+    // entry, public." (18:55:02) rendered above "ok thanks" (18:54:07).
+    //
+    // Live events arrive in time order already, so this only ever reorders
+    // what history grouped — and an unsent echo sorts last by construction.
+    const ordered = [...folded, ...echoes];
+    ordered.sort((a, b) => a.at - b.at);
+    return ordered;
   }, [allEvents, pending]);
 
   useEffect(() => {
