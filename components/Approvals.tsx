@@ -183,8 +183,14 @@ export function Approvals({
 
   // CONFIRMATIONS COME FROM THE SERVER, because `/v1/actions` refuses a ticket
   // — a decision causes a tool to run, so it is a privileged read and write.
+  // ANY OF THREE KINDS CAN CARRY ONE, which is why this does not test for the
+  // kind that names it. A turn raising both a confirmation and something
+  // longer-running reports the LONGER-LIVED kind — `approval`, else `tool` —
+  // because the pause kind is a single word over a mixed turn and the payload
+  // is what is authoritative. Testing for "confirmation" therefore dropped the
+  // user's own card whenever anything outranked it.
   useEffect(() => {
-    if (!waiting || waiting.kind !== "confirmation" || settled) return;
+    if (!waiting || waiting.kind === "input" || settled) return;
     let current = true;
     setMissing("");
 
@@ -230,7 +236,11 @@ export function Approvals({
       // GIVING UP IS SAID OUT LOUD. Nothing pending after several seconds is
       // either a batch somebody answered elsewhere or one that never landed,
       // and both deserve a sentence rather than a card with no buttons.
-      if (current && !said) {
+      // AND COMPLAIN ONLY WHERE ONE WAS DUE. A `confirmation` pause means a
+      // card belongs to the person reading this, so finding none is wrong and
+      // worth saying. An `approval` or `tool` pause routinely has nothing for
+      // them — it is waiting on somebody else — and the note below says so.
+      if (current && !said && waiting.kind === "confirmation") {
         setBatches([]);
         setMissing(
           "This run is waiting on an approval that has not appeared in the " +
@@ -352,8 +362,11 @@ export function Approvals({
         </div>
       )}
 
-      {waiting.kind === "confirmation" &&
-        batches.map((batch) => (
+      {/* THE CARDS THEMSELVES ARE EVIDENCE THAT THEY BELONG HERE. The fetch
+          above only returns confirmations this person may decide, so having
+          one IS the condition — and gating on the kind again would fetch a
+          mixed turn's card and then refuse to draw it. */}
+      {batches.map((batch) => (
           <div key={batch.batch_id} className="pause-act">
             <ul className="tools">
               {batch.actions.map((action) => (
@@ -423,6 +436,14 @@ export function Approvals({
             )}
           </div>
         ))}
+
+      {waiting.kind === "approval" && batches.length === 0 && (
+        <p className="pause-note">
+          Someone at the organisation is reviewing this request. You do not
+          need to do anything — the request waits even if you carry on
+          talking, and the agent will tell you what was decided.
+        </p>
+      )}
 
       {waiting.kind === "tool" && (
         <p className="pause-note">
