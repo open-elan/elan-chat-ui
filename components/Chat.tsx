@@ -42,6 +42,10 @@ import { conversations } from "@/lib/sessions";
 const SETTLES = new Set(["content", "finished", "error", "paused"]);
 
 interface Turn {
+  /** Unique per BUBBLE: a resume is the same invocation and a separate turn. */
+  key: string;
+  /** True for the half of a run that resumed after somebody answered it. */
+  continued: boolean;
   invocationId: string;
   said: string;
   replied: string;
@@ -61,17 +65,44 @@ interface Turn {
  * back when it goes quiet again. The typing plugin's own comment says the same
  * thing from the other side — it deliberately does not emit `idle` after the
  * model returns, because `content`, `finished` and `error` already mean clear.
+ *
+ * ── A TURN IS A SEGMENT, NOT AN INVOCATION ───────────────────────────────────
+ *
+ * A RESUME KEEPS THE ORIGINAL `invocation_id` — deliberately, because cost
+ * attribution and node idempotency depend on it — so grouping on that alone
+ * folds the continuation back into the bubble the run STARTED in. For a
+ * confirmation answered in the chat that is invisible, because no other turn
+ * has happened in between.
+ *
+ * For an approval it rewrites history in front of the reader. Measured: a
+ * guest asked to publish, carried on talking, and a manager approved three
+ * messages later — and "Published 1 entry, public." appeared above the reply
+ * that still said the request was with the team. Both sentences were correct
+ * when they were written; the older one was simply rendered last.
+ *
+ * `segment` is empty on the original run and carries the interrupt id on a
+ * resume, so `(invocation_id, segment)` puts the continuation where it
+ * actually arrived. ADK's own history already reads this way — it is ordered
+ * by timestamp — which is why a RELOAD showed the right order and the live
+ * view did not.
  */
 function fold(events: readonly AgentEvent[]): Turn[] {
   const order: string[] = [];
   const byRun = new Map<string, Turn>();
 
   for (const event of events) {
-    const id = event.invocation_id;
+    const id = event.segment
+      ? `${event.invocation_id}#${event.segment}`
+      : event.invocation_id;
     if (!byRun.has(id)) {
       order.push(id);
       byRun.set(id, {
-        invocationId: id, said: "", replied: "", author: "",
+        key: id,
+        continued: Boolean(event.segment),
+        // THE RUN, NOT THE KEY. A continuation is a separate bubble and the
+        // same invocation; anything looking up the run by this must still
+        // find it.
+        invocationId: event.invocation_id, said: "", replied: "", author: "",
         failure: "", status: "", ended: false,
       });
     }
@@ -186,13 +217,21 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     // echo lends its text to that turn rather than vanishing the moment the
     // run is known — otherwise the message disappears for the whole cold start.
     const echoed = new Map(pending.map((item) => [item.id, item.said]));
+    // NEVER ONTO A CONTINUATION. The echo is keyed on the invocation, and a
+    // resume shares it — so without this guard the user's own "publish the
+    // logbook" would be drawn a SECOND time above the answer that came back,
+    // as though they had asked twice. A continuation has no utterance of its
+    // own, which is the point: somebody else answered it.
     const folded = fold(allEvents).map((turn) =>
-      turn.said ? turn : { ...turn, said: echoed.get(turn.invocationId) ?? "" },
+      turn.said || turn.continued
+        ? turn
+        : { ...turn, said: echoed.get(turn.invocationId) ?? "" },
     );
     const known = new Set(folded.map((turn) => turn.invocationId));
     const echoes = pending
       .filter((item) => !known.has(item.id))
       .map<Turn>((item) => ({
+        key: item.id, continued: false,
         invocationId: item.id, said: item.said, replied: "", author: "",
         failure: "", status: "", ended: false,
       }));
@@ -256,7 +295,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
         )}
 
         {turns.map((turn) => (
-          <article key={turn.invocationId || turn.said} className="turn">
+          <article key={turn.key || turn.said} className="turn">
             {turn.said && <p className="mine">{turn.said}</p>}
 
             {turn.replied && (
