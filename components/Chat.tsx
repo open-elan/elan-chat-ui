@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentEvents } from "elan-sdk/react";
-import { LoaderCircle, SendHorizontal } from "lucide-react";
+import { LoaderCircle, Paperclip, SendHorizontal, X } from "lucide-react";
 import { authorOf, textOf, type AgentEvent } from "elan-sdk";
 
 import { Approvals } from "./Approvals";
@@ -37,6 +37,7 @@ import { Markdown } from "./Markdown";
 import { Tools } from "./Tools";
 import { toolsIn } from "@/lib/tools";
 import { conversations } from "@/lib/sessions";
+import { announce, upload, type Attachment } from "@/lib/upload";
 
 /** Kinds that mean the agent is no longer mid-thought. */
 const SETTLES = new Set(["content", "finished", "error", "paused"]);
@@ -279,9 +280,39 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns.length, events.length]);
 
+  // AN ATTACHMENT IS STORED BEFORE THE MESSAGE IS SENT, not with it. The two
+  // are separate requests that fail for different reasons — a type this
+  // product will not take, or a bucket that does not allow this origin — so
+  // they get separate errors and the file is already safe by the time `send`
+  // runs.
+  const [attached, setAttached] = useState<Attachment[]>([]);
+  const [attaching, setAttaching] = useState(false);
+
+  const attach = useCallback(
+    async (file: File) => {
+      setRefused("");
+      setAttaching(true);
+      try {
+        // AWAITED FIRST, THEN SET. An updater callback is not async, and the
+        // file has to be stored before it can be listed as stored.
+        const stored = await upload(file, sessionId);
+        setAttached((held) => [...held, stored]);
+      } catch (thrown) {
+        setRefused(thrown instanceof Error ? thrown.message : String(thrown));
+      } finally {
+        setAttaching(false);
+      }
+    },
+    [sessionId],
+  );
+
   const send = useCallback(async () => {
-    const text = draft.trim();
-    if (!text || sending) return;
+    const typed = draft.trim();
+    // A FILE ON ITS OWN IS A MESSAGE. Somebody who attaches a document and
+    // presses send means "look at this", and `announce` writes that sentence —
+    // requiring text as well would be this UI inventing a rule.
+    if ((!typed && attached.length === 0) || sending) return;
+    const text = announce(typed, attached);
     setSending(true);
     setRefused("");
     try {
@@ -298,12 +329,16 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
       setPending((held) => [...held, { id: body.invocation_id ?? "", said: text }]);
       conversations.title(sessionId, text);
       setDraft("");
+      // CLEARED ONLY ON SUCCESS. A refused invocation leaves the attachment
+      // list alone, because the files are already stored and re-uploading them
+      // would make a second copy with a second version number.
+      setAttached([]);
     } catch (thrown) {
       setRefused(thrown instanceof Error ? thrown.message : String(thrown));
     } finally {
       setSending(false);
     }
-  }, [draft, sending, sessionId]);
+  }, [draft, attached, sending, sessionId]);
 
   // THE COMPOSER WAITS FOR THE SOCKET, and this is the ordering the whole
   // protocol turns on. Pub/Sub discards a message published to a topic with no
@@ -407,6 +442,32 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
       {error && <p className="failed">socket: {error}</p>}
       {refused && <p className="failed">{refused}</p>}
 
+      {/* WHAT IS ALREADY STORED, ABOVE THE COMPOSER. These files are on the
+          platform before a message is sent, so the list is a fact rather than
+          a queue — removing one here only stops it being NAMED in the next
+          message, which is why the control says "don't mention" rather than
+          "delete". */}
+      {attached.length > 0 && (
+        <ul className="attached">
+          {attached.map((file) => (
+            <li key={`${file.filename}:${file.version}`}>
+              <Paperclip size={14} aria-hidden="true" />
+              <span>{file.filename}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  setAttached((held) => held.filter((h) => h !== file))
+                }
+                aria-label={`Do not mention ${file.filename}`}
+                title={`Do not mention ${file.filename}`}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <form
         className="composer"
         onSubmit={(submitted) => {
@@ -414,6 +475,33 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
           void send();
         }}
       >
+        {/* A LABEL AROUND A HIDDEN INPUT, because `<input type="file">` cannot
+            be styled and a button cannot open a file picker. The label is the
+            control a keyboard reaches. */}
+        <label
+          className="attach"
+          aria-label={attaching ? "Attaching" : "Attach a file"}
+          title={attaching ? "Attaching" : "Attach a file"}
+        >
+          {attaching ? (
+            <LoaderCircle className="spin" size={18} aria-hidden="true" />
+          ) : (
+            <Paperclip size={18} aria-hidden="true" />
+          )}
+          <input
+            type="file"
+            hidden
+            disabled={!ready || attaching || sending}
+            onChange={(changed) => {
+              const file = changed.target.files?.[0];
+              // CLEARED SO THE SAME FILE CAN BE CHOSEN AGAIN. A file input
+              // fires no `change` for an unchanged value, so a failed upload
+              // could not be retried without this.
+              changed.target.value = "";
+              if (file) void attach(file);
+            }}
+          />
+        </label>
         <input
           value={draft}
           onChange={(changed) => setDraft(changed.target.value)}
@@ -428,7 +516,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
         <button
           type="submit"
           className="send"
-          disabled={!ready || sending || !draft.trim()}
+          disabled={!ready || sending || (!draft.trim() && attached.length === 0)}
           aria-label={sending ? "Sending" : "Send"}
           title={sending ? "Sending" : "Send"}
         >

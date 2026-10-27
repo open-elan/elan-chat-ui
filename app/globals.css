@@ -519,6 +519,70 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
   padding: 0;
 }
 
+/* SQUARE LIKE `.send`, for the same reason and by the same means — a paperclip
+   on the left and an arrow on the right should be the same shape. A `label`
+   rather than a button because `<input type="file">` cannot be styled and a
+   button cannot open a picker, so the label IS the control. */
+.attach {
+  flex: none;
+  align-self: stretch;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.attach:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* `:focus-within` AND NOT `:focus`. The focus ring belongs to the hidden input,
+   so a keyboard user tabbing here would otherwise see nothing at all. */
+.attach:focus-within {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.attach:has(input:disabled) { opacity: .5; cursor: default; }
+
+/* WHAT IS ALREADY STORED. Shares the composer's measure so the chips line up
+   with the field below them rather than with the window. */
+.attached {
+  --measure: 46rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--space) * 2);
+  margin: 0;
+  padding-inline: max(calc(var(--space) * 6), calc((100% - var(--measure)) / 2));
+  padding-block: calc(var(--space) * 2) 0;
+  list-style: none;
+  background: var(--surface-raised);
+}
+
+.attached li {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space) * 1.5);
+  padding: calc(var(--space) * 1) calc(var(--space) * 2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-size-small);
+  color: var(--text-muted);
+}
+
+.attached button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.attached button:hover { color: var(--text); }
+
 .spin { animation: spin .8s linear infinite; }
 
 @keyframes spin { to { transform: rotate(1turn); } }

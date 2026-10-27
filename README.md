@@ -14,9 +14,18 @@ is the whole subject of this example — not the chat, which is twenty lines of
 
 ## Why there are two halves
 
-A **ticket** opens `/ws` and nothing else. Every other route answers `403`. So
-a browser holding one can *watch* a run and cannot start one, cannot list
-approvals, cannot decide one, and cannot read a run back.
+A **ticket** opens `/ws`, and almost nothing else. A browser holding one can
+*watch* a run and cannot start one, cannot list approvals, cannot decide one,
+and cannot read a run back — every one of those answers `403`.
+
+> **The one exception, and why this app does not take it.** A ticket may also
+> declare an artifact upload and fetch a download URL, under its own end user
+> and never a shared document. That widening exists so an app can let a browser
+> upload with one hop fewer. This app still goes through `/api/upload`, because
+> the split below is the thing worth keeping: everything that acts has a route,
+> so there is one place to read what this product permits — and a per-user
+> quota, an allow-list of types or a virus scan becomes a change to one file
+> rather than a change to the platform.
 
 Everything that **acts** therefore happens in a route handler, with a service
 user's credentials that never leave the server:
@@ -36,6 +45,10 @@ user's credentials that never leave the server:
   POST /api/invoke ────────────► runtime.invoke(agent, text, ────► /v1/invocations
                                    {sessionId, endUserId})          202
   ◄═══════════ the reply arrives on the SOCKET, never in a response ═══════════
+
+  POST /api/upload ────────────► artifacts.declareUpload(...) ───► /v1/artifacts/uploads
+  ◄──────────── a signed PUT url
+  PUT  storage.googleapis.com ──────────────────────────────────► (the bytes, direct)
 
   POST /api/approvals ─────────► actions.decideBatch(...) ───────► /v1/actions/…
   POST /api/resume ────────────► runtime.resume(id, {payload}) ──► /v1/invocations/…/resume
@@ -139,12 +152,14 @@ components are a thin reading of an event stream.
 | `lib/tools.ts` | Pairs `function_call` with `function_response` on the call id. No React in it. |
 | `lib/permissions.ts` | Folds the declaration and the stored grants into one row per tool. No React in it. |
 | `lib/changed.ts` | One event name, so the approval card and the settings panel agree. |
+| `lib/upload.ts` | Authorise, then PUT. Names the CORS cause, because that one fails with nothing in any log. |
 | `app/api/session`, `/ticket` | Sign in; mint the browser's ~300s stream credential. |
 | `app/api/invoke`, `/resume` | Start a run; answer a workflow input pause with data. |
 | `app/api/approvals` | List what a run is waiting on, and decide a whole batch. |
 | `app/api/history` | The durable read, with the ownership check that must precede it. |
 | `app/api/agent`, `/permissions` | The agent's card; what it may do and what this person allowed. |
 | `app/api/wallet` | Credits and statement. Read-only by construction. |
+| `app/api/upload` | Authorises ONE attachment. The bytes never pass through it. |
 | `components/Workspace.tsx` | The rail and the transcript. |
 | `components/Chat.tsx` | The transcript, folded from events rather than kept in a list. |
 | `components/Approvals.tsx` | The three kinds of pause, and the different call each needs. |
@@ -279,6 +294,66 @@ rather than `dangerouslySetInnerHTML`: a reply is untrusted text, since it can
 repeat anything a user typed or a tool fetched. Verified: an
 `<img src=x onerror=…>` in a reply comes out as escaped characters, not an
 element. If you ever add `rehype-raw`, add a sanitiser with it.
+
+---
+
+## Attachments, and the two things that make them do nothing
+
+The paperclip stores a file and names it in the next message. That is all the
+UI can do — the two halves that make it *useful* are outside this repo, and
+both are easy to miss because neither fails loudly.
+
+**1. The agent needs a tool that reads artifacts.** Storing a file tells the
+agent nothing. There is no file field on an invocation — an invocation carries
+text, and a new field on that envelope would be rejected by every
+already-deployed agent image — so the name travels in the sentence and the
+agent reads it back by name:
+
+```python
+async def read_attachment(filename: str, tool_context: ToolContext) -> dict:
+    """Read a file the guest attached to this conversation."""
+    part = await tool_context.load_artifact(filename)
+    if part is None or part.inline_data is None:
+        return {"status": "not_found"}
+    return {"text": part.inline_data.data.decode("utf-8", "replace")}
+```
+
+Without a tool like that, the agent takes the attachment politely and ignores
+it. **That is the failure to expect first**, because nothing errors.
+
+**2. The bucket has to allow this app's origin.** The browser PUTs
+cross-origin to Google, so the agent's project must declare it:
+
+```yaml
+# in the AGENT's elan.yaml, not this repo
+artifacts:
+  origins: ["https://chat.example.com", "http://localhost:3002"]
+```
+
+Miss it and the PUT fails as an indistinguishable network error — no status, no
+body, nothing in any log on either side. `lib/upload.ts` catches that one case
+and says which file to go and edit, because a bare `TypeError: Failed to fetch`
+sends you to read your own code.
+
+### What it stores, and where
+
+An attachment is **session-scoped**: it belongs to this conversation and this
+end user, and another visitor cannot see it. `/api/upload` refuses a name
+beginning `project:` or `agent:` for that reason — those address the
+organisation's own standing documents and are an admin's to write from the
+console, not a visitor's from a chat box.
+
+The file is on the platform **before** the message is sent, which is why
+removing a chip says "don't mention" rather than "delete": the bytes are
+already stored, and the chip only controls whether the next message names them.
+
+### Why the size is declared up front
+
+The signed URL pins the exact byte length and content type. A PUT of a
+different length is refused by storage — so the browser measures the file
+before asking for authorisation and cannot declare a guess and stream whatever
+arrives. It also means a file that changes between choosing and sending is
+refused rather than silently stored wrong.
 
 ---
 
