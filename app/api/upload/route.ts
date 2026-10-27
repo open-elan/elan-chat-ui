@@ -8,12 +8,11 @@
  * platform to authorise one transfer and hands back the URL to PUT to. The
  * bytes never pass through here.
  *
- * A ticket CAN now declare an upload directly against the platform — that
- * widening exists for apps that want one hop fewer. This app deliberately does
- * not use it, for the same reason `/api/invoke` exists: everything that ACTS
- * goes through a route, so there is one place to see what this product permits.
- * Keeping it here also means a per-user quota, an allow-list of types, or a
- * virus scan is a change to this file and not a change to the platform.
+ * A BROWSER CANNOT DO THIS ITSELF. A ticket opens the event stream and nothing
+ * else, so it cannot ask the platform to authorise an upload — and that is the
+ * right shape rather than a limitation to work around. This route is where a
+ * per-user quota, an allow-list of types or a virus scan belongs, and having
+ * it means those are a change to this file and not to the platform.
  *
  * ── THE SIZE IS THE AUTHORISATION, NOT A HINT ────────────────────────────────
  *

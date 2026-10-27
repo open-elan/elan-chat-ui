@@ -14,21 +14,14 @@ is the whole subject of this example — not the chat, which is twenty lines of
 
 ## Why there are two halves
 
-A **ticket** opens `/ws`, and almost nothing else. A browser holding one can
-*watch* a run and cannot start one, cannot list approvals, cannot decide one,
-and cannot read a run back — every one of those answers `403`.
-
-> **The one exception, and why this app does not take it.** A ticket may also
-> declare an artifact upload and fetch a download URL, under its own end user
-> and never a shared document. That widening exists so an app can let a browser
-> upload with one hop fewer. This app still goes through `/api/upload`, because
-> the split below is the thing worth keeping: everything that acts has a route,
-> so there is one place to read what this product permits — and a per-user
-> quota, an allow-list of types or a virus scan becomes a change to one file
-> rather than a change to the platform.
+A **ticket** opens `/ws` and nothing else. Every other route answers `403`. So
+a browser holding one can *watch* a run and cannot start one, cannot list
+approvals, cannot decide one, cannot read a run back, and cannot store a file.
 
 Everything that **acts** therefore happens in a route handler, with a service
-user's credentials that never leave the server:
+user's credentials that never leave the server — including an attachment, where
+the route authorises the transfer and the browser sends the bytes to storage
+itself:
 
 ```
   browser                        this app's server                 platform
@@ -303,11 +296,19 @@ The paperclip stores a file and names it in the next message. That is all the
 UI can do — the two halves that make it *useful* are outside this repo, and
 both are easy to miss because neither fails loudly.
 
-**1. The agent needs a tool that reads artifacts.** Storing a file tells the
-agent nothing. There is no file field on an invocation — an invocation carries
-text, and a new field on that envelope would be rejected by every
-already-deployed agent image — so the name travels in the sentence and the
-agent reads it back by name:
+**1. The name has to be in the message, and it is.** There is no file field on
+an invocation — an invocation carries text, and a new field on that envelope
+would be rejected by every already-deployed agent image — so the name travels
+in the sentence. `announce()` in `lib/upload.ts` is what puts it there.
+
+That is enough on its own: **the platform loads a file the message names and
+puts the real bytes in the model request**, so a vision model reads the scan
+rather than a sentence about it. No tool required.
+
+A tool is still the better answer for some cases — a file larger than the
+16 MiB-per-request ceiling, a shared `project:` or `agent:` document (those are
+deliberately never auto-attached), or anything the agent should read without
+the user naming it:
 
 ```python
 async def read_attachment(filename: str, tool_context: ToolContext) -> dict:
@@ -318,8 +319,8 @@ async def read_attachment(filename: str, tool_context: ToolContext) -> dict:
     return {"text": part.inline_data.data.decode("utf-8", "replace")}
 ```
 
-Without a tool like that, the agent takes the attachment politely and ignores
-it. **That is the failure to expect first**, because nothing errors.
+**What to expect when it does not work:** the name in the text must match the
+stored name exactly — `receipt.jpg`, not "the receipt I just sent".
 
 **2. The bucket has to allow this app's origin.** The browser PUTs
 cross-origin to Google, so the agent's project must declare it:

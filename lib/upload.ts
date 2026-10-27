@@ -20,9 +20,17 @@
  * ── AND AN UPLOAD IS NOT A MESSAGE ───────────────────────────────────────────
  *
  * Storing a file tells the agent nothing. The agent learns about it because the
- * message names it and a tool of its own reads it back with
- * `load_artifact(filename)` — so `send()` puts the name in the text. An agent
- * with no such tool will take the attachment politely and ignore it.
+ * MESSAGE NAMES IT, which is what `announce()` below is for — an invocation
+ * carries text parts and nothing else, so there is nowhere else for the name to
+ * go.
+ *
+ * The name is enough: the platform loads a file the message names and puts the
+ * real bytes in the model request, so a vision model reads the file itself. A
+ * tool calling `load_artifact(filename)` is still the way to reach a shared
+ * `project:`/`agent:` document, or a file too large to put in a prompt.
+ *
+ * WHICH MEANS THE NAME MUST MATCH EXACTLY. `receipt.jpg` is found;
+ * "the receipt I just sent" is not, and nothing errors when it is not.
  */
 
 export interface Attachment {
