@@ -34,10 +34,11 @@ import { authorOf, textOf, type AgentEvent } from "elan-sdk";
 import { Approvals } from "./Approvals";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { Markdown } from "./Markdown";
+import { Said } from "./Said";
 import { Tools } from "./Tools";
 import { toolsIn } from "@/lib/tools";
 import { conversations } from "@/lib/sessions";
-import { announce, upload, type Attachment } from "@/lib/upload";
+import { announce, downloadHref, upload, type Attachment } from "@/lib/upload";
 
 /** Kinds that mean the agent is no longer mid-thought. */
 const SETTLES = new Set(["content", "finished", "error", "paused"]);
@@ -368,7 +369,9 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
 
         {turns.map((turn) => (
           <article key={turn.key || turn.said} className="turn">
-            {turn.said && <p className="mine">{turn.said}</p>}
+            {/* THE VISITOR'S OWN WORDS, with any file they attached as a
+                link. Plain text apart from that — see `Said`. */}
+            {turn.said && <Said text={turn.said} sessionId={sessionId} />}
 
             {turn.replied && (
               <div className="theirs">
@@ -452,7 +455,18 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
           {attached.map((file) => (
             <li key={`${file.filename}:${file.version}`}>
               <Paperclip size={14} aria-hidden="true" />
-              <span>{file.filename}</span>
+              {/* A LINK EVEN BEFORE THE MESSAGE IS SENT, because the file is
+                  already ON the platform by the time this chip appears — that
+                  is what the list is a fact about. So "did the right file go
+                  up?" is answerable here rather than only after sending. */}
+              <a
+                href={downloadHref(file.filename, sessionId)}
+                target="_blank"
+                rel="noreferrer"
+                title={`Download ${file.filename}`}
+              >
+                {file.filename}
+              </a>
               <button
                 type="button"
                 onClick={() =>

@@ -421,6 +421,34 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
   white-space: pre-wrap;
 }
 
+/* AN ATTACHMENT IN A SENT MESSAGE, as a link back to the file.
+   INLINE-FLEX RATHER THAN INLINE so the paperclip sits on the text's baseline
+   instead of hanging below it; `white-space: nowrap` keeps a filename from
+   breaking across lines mid-name, where the two halves would read as two
+   files. */
+.mine .attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space) * 1);
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.mine .attachment:hover {
+  color: var(--accent);
+}
+
+/* VISIBLE AGAINST THE BUBBLE, not the page. `.mine` sits on `--accent-wash`,
+   so a focus ring in the page's own accent can disappear into it. */
+.mine .attachment:focus-visible {
+  outline: var(--border-width) solid var(--text);
+  outline-offset: 2px;
+  border-radius: var(--radius-small);
+}
+
 /* NO `pre-wrap` HERE. The agent's side is markdown now, so the renderer owns
    the layout — preserving the source whitespace on top of it would double
    every blank line between paragraphs. `.mine` keeps it, because that is
@@ -569,6 +597,18 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
   border-radius: var(--radius-pill);
   font-size: var(--text-size-small);
   color: var(--text-muted);
+}
+
+/* The chip's filename, as a link. Inherits the chip's muted colour so the
+   row still reads as one object rather than a link with furniture around it. */
+.attached a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.attached a:hover {
+  color: var(--accent);
 }
 
 .attached button {

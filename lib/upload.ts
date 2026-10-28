@@ -118,9 +118,66 @@ export async function upload(file: File, sessionId: string): Promise<Attachment>
  *  So the name travels in the sentence and the agent reads it back by name. */
 export function announce(text: string, attachments: Attachment[]): string {
   if (attachments.length === 0) return text;
-  const names = attachments.map((a) => a.filename).join(", ");
+  const names = attachments.map((a) => a.filename).join(SEPARATOR);
   const noun = attachments.length === 1 ? "file" : "files";
   return text
     ? `${text}\n\n(attached ${noun}: ${names})`
     : `Please look at the attached ${noun}: ${names}`;
+}
+
+/** How several names are joined in that sentence, and split back out of it. */
+const SEPARATOR = ", ";
+
+/** Both shapes `announce()` can produce, as one pattern.
+ *
+ *  `[^)\n]+` STOPS AT THE CLOSING PAREN for the first shape and runs to the
+ *  end of the line for the second, which is what lets one expression read both
+ *  without caring which was written. */
+const ANNOUNCED = /attached files?: ([^)\n]+)/;
+
+/** The filenames a message names as attachments, in the order it names them.
+ *
+ *  ── BESIDE `announce()` BECAUSE IT IS ITS INVERSE ──────────────────────────
+ *
+ *  This reads a format the function above writes, and the two drifting apart
+ *  means links that silently stop appearing — no error, just a transcript that
+ *  renders attachments as plain text again. Keeping them in one file is what
+ *  makes the format a single statement rather than two agreeing guesses.
+ *
+ *  ── WHY PARSE AT ALL, RATHER THAN REMEMBER ─────────────────────────────────
+ *
+ *  Because of RELOADS, which are the case that matters. A sent message's
+ *  attachment list exists only in React state; the transcript that comes back
+ *  from the server is text. So "re-download something I attached yesterday"
+ *  can only work by reading the message, and anything remembered client-side
+ *  would work until the first refresh and then quietly stop.
+ *
+ *  ── THE ONE LIMITATION, STATED ─────────────────────────────────────────────
+ *
+ *  Names are joined with ", " and split on it, so a filename CONTAINING ", "
+ *  is read as two and neither links. The file is still stored and the agent
+ *  still reads it — only the link is missed — and the alternative is a
+ *  separator that makes the sentence read like machinery to the model and the
+ *  person. */
+export function attachedIn(text: string): string[] {
+  const found = ANNOUNCED.exec(text);
+  // THE GROUP IS CHECKED SEPARATELY FROM THE MATCH, because a match whose
+  // capture is absent is representable in the type even when this pattern
+  // cannot produce one.
+  const names = found?.[1];
+  if (!names) return [];
+  return names
+    .split(SEPARATOR)
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0 && !name.includes("/"));
+}
+
+/** Where a link for one attachment points.
+ *
+ *  THIS APP'S OWN ROUTE, NEVER A SIGNED URL. The signature is minted when the
+ *  link is followed, because one rendered into a transcript expires in minutes
+ *  while the transcript does not. */
+export function downloadHref(filename: string, sessionId: string): string {
+  const query = new URLSearchParams({ filename, session: sessionId });
+  return `/api/download?${query.toString()}`;
 }
