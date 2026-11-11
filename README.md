@@ -74,28 +74,8 @@ component that could leak one — the build would inline `undefined`.
 
 ## Running it
 
-### Prerequisite: the SDK is not published yet
-
-`elan-sdk` is a `file:` dependency on a sibling checkout, because the package
-is not on npm yet. So:
-
-```bash
-git clone <the platform repo> ../elan-platform
-cd ../elan-platform && make sdk-ts-build    # produces sdk/typescript/dist
-cd -
-```
-
-> **Re-run `pnpm install` after every `make sdk-ts-build`.** A `file:`
-> dependency is copied into `node_modules`, not symlinked, and pnpm refreshes
-> it per the files it knew about at install time — so a NEW module in the SDK
-> can be missing while the updated `index.js` that imports it is present. The
-> failure is `module-not-found` naming a file that is plainly there on disk, in
-> the other checkout.
-
-When the SDKs publish this becomes one line in `package.json`
-(`"elan-sdk": "^0.1.0"`) and the clone goes away.
-
-### Then
+`elan-sdk` comes from npm (`"elan-sdk": "^0.1.2"`), so there is nothing to
+check out beside this repo.
 
 ```bash
 pnpm install
