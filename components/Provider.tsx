@@ -22,6 +22,8 @@
 import { useCallback, type ReactNode } from "react";
 import { ElanProvider } from "elan-sdk/react";
 
+import { freshTicket } from "@/lib/ticket";
+
 export function Provider({
   baseUrl,
   children,
@@ -29,18 +31,10 @@ export function Provider({
   baseUrl: string;
   children: ReactNode;
 }) {
-  const ticket = useCallback(async () => {
-    // ASKED AGAIN ON EVERY CONNECT, never cached here. A ticket lives about
-    // five minutes; a reconnect replaying a stale one is closed 1008, which
-    // looks like a broken credential rather than an expired one.
-    const answer = await fetch("/api/ticket", { method: "POST" });
-    if (!answer.ok) {
-      const body = (await answer.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error || `could not mint a ticket (${answer.status})`);
-    }
-    const { ticket } = (await answer.json()) as { ticket: string };
-    return ticket;
-  }, []);
+  // ASKED AGAIN ON EVERY CONNECT, never cached here. A ticket lives about
+  // five minutes; a reconnect replaying a stale one is closed 1008, which
+  // looks like a broken credential rather than an expired one.
+  const ticket = useCallback(() => freshTicket(), []);
 
   return (
     <ElanProvider baseUrl={baseUrl} ticket={ticket}>

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       elan-sdk:
-        specifier: ^0.2.0
-        version: 0.2.0(react@19.3.0)
+        specifier: ^0.2.1
+        version: 0.2.1(react@19.3.0)
       lucide-react:
         specifier: 1.49.0
         version: 1.49.0(@types/react@19.3.0)(react@19.3.0)
@@ -344,8 +344,8 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
-  elan-sdk@0.2.0:
-    resolution: {integrity: sha512-F8cEPJdV8Atpq6XNn7Au93XOyY+YunZftSJcLc7Z0G6jz8QCVT04Ikc+jooNszLlMdVyeRQFujmqMivxiy/Cnw==}
+  elan-sdk@0.2.1:
+    resolution: {integrity: sha512-pHw9fdzU61gVZXMuwpV3o0Dk0lz9weL0aIJ+cXZjEtG7L2Y6VDPPDbdnV72wYjVwcvgnn6lVVNXl+PUTRyEGLg==}
     engines: {node: '>=22.18'}
     peerDependencies:
       react: '>=18'
@@ -918,7 +918,7 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
-  elan-sdk@0.2.0(react@19.3.0):
+  elan-sdk@0.2.1(react@19.3.0):
     optionalDependencies:
       react: 19.3.0
 

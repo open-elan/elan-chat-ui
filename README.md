@@ -100,7 +100,7 @@ To check your changes, run `pnpm typecheck` and `pnpm build`.
 - [What happens when you send a message](docs/how-it-works.md#what-happens-when-you-send-a-message), step by step
 - [Identity](docs/how-it-works.md#identity), and how to replace the demo sign-in with your own
 - [Conversations, history and liveness](docs/how-it-works.md#conversations-history-and-liveness)
-- [Pauses and approvals](docs/how-it-works.md#pauses-and-approvals): the three kinds and how each is answered
+- [Pauses and approvals](docs/how-it-works.md#pauses-and-approvals): the four kinds and how each is answered, connecting an account included
 - [Attachments](docs/how-it-works.md#attachments): upload, download and retention
 - [Permissions](docs/how-it-works.md#permissions-what-the-agent-may-do-on-its-own): tiers, ceilings and standing grants
 - [Credits and statement](docs/how-it-works.md#credits-and-statement)

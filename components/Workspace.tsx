@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Chat } from "./Chat";
 import { Sessions } from "./Sessions";
 import { AgentCard } from "./AgentCard";
+import { Connections } from "./Connections";
 import { Permissions } from "./Permissions";
 import { Wallet } from "./Wallet";
 import { conversations } from "@/lib/sessions";
@@ -50,6 +51,9 @@ export function Workspace({
         {active && <Wallet sessionId={active} />}
         <AgentCard />
         <Permissions />
+        {/* ABOUT THE PERSON, like the wallet: the accounts they have let the
+            agent use, and the way to sign the agent out of one. */}
+        <Connections />
         <div className="whoami">
           {/* `Array.from` so a name starting with an emoji or an accented
               letter yields one character rather than half a surrogate pair. */}

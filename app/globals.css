@@ -763,15 +763,66 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
 .tools-verb { font-weight: 560; color: var(--text); }
 .tools-pending { color: var(--caution); }
 
-.tools-detail {
-  margin: 0;
-  padding: 0 calc(var(--space) * 2.5) calc(var(--space) * 2.5) calc(var(--space) * 7);
-  display: grid;
-  gap: calc(var(--space) * 3);
+/* ── MCP APP VIEWS, in a sandboxed frame (Surface.tsx, McpApp.tsx) ───────── */
+.app-view {
+  margin: 0 0 calc(var(--space) * 3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.app-plain { display: grid; gap: calc(var(--space) * 1.5); padding: calc(var(--space) * 3); }
+.app-plain p { margin: 0; color: var(--text-muted); }
+.app-frame { display: block; width: 100%; border: 0; background: var(--surface); }
+
+/* ── ONE ROW PER TOOL CALL, AS IT HAPPENS ─────────────────────────────────
+   An icon that says where the call is, the tool in words, and its real name.
+   A row opens to what was sent and what came back. */
+.activity { margin: 0 0 calc(var(--space) * 3); font-size: var(--text-size-small); }
+.tools-used .activity { margin: 0; padding: 0 calc(var(--space) * 1.5) calc(var(--space) * 1.5); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--space) * 0.5); }
+.step > summary {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space) * 2);
+  padding: calc(var(--space) * 1) calc(var(--space) * 1.5);
+  border-radius: var(--radius-small);
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.step > summary::-webkit-details-marker { display: none; }
+.step > summary:hover { background: var(--surface-sunken); }
+.step > summary:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.step[open] { display: grid; gap: calc(var(--space) * 1.5); padding-bottom: calc(var(--space) * 2); }
+.step[open] > .tools-pair { margin-left: calc(var(--space) * 7.5); }
+.step-icon { display: inline-flex; flex: none; color: var(--text-muted); }
+.step-icon[data-state="running"] { color: var(--accent-strong); }
+.step-icon[data-state="done"] { color: var(--positive); }
+.step-icon[data-state="failed"] { color: var(--negative); }
+.step-name { color: var(--text); }
+.step-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-size-tiny);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.tools-detail > li { display: grid; gap: calc(var(--space) * 1); }
-.tools-name { font-weight: 560; }
+/* ── SIGNING IN: while the provider's window is open ────────────────────── */
+.connecting { display: flex; align-items: flex-start; gap: calc(var(--space) * 3); }
+.connecting-spinner { flex: none; margin-top: calc(var(--space) * 0.5); color: var(--accent-strong); }
+.connecting-text { display: grid; gap: calc(var(--space) * 1); justify-items: start; }
+.connecting-text > span { color: var(--text-muted); font-size: var(--text-size-small); }
+.connecting-show { margin-top: calc(var(--space) * 1); }
 .tools-pair { display: grid; gap: calc(var(--space) * 0.5); }
 
 .tools-label {
@@ -1079,6 +1130,42 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
 
 .perm-revoke:hover:not(:disabled) { color: var(--rail-text); }
 .perm-revoke:disabled { cursor: default; opacity: 0.6; }
+
+/* ── CONNECTED ACCOUNTS, one tile each ──────────────────────────────────── */
+.accounts { list-style: none; margin: calc(var(--space) * 2) 0 0; padding: 0; display: grid; gap: calc(var(--space) * 1.5); }
+.account {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: calc(var(--space) * 2.5);
+  padding: calc(var(--space) * 2);
+  border: var(--border-width) solid var(--rail-border);
+  border-radius: var(--radius-small);
+}
+.account-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--rail-wash);
+  color: var(--rail-muted);
+}
+.account-main { display: grid; gap: calc(var(--space) * 0.5); min-width: 0; }
+.account-name { color: var(--rail-text); font-weight: 600; font-family: var(--font-mono); font-size: var(--text-size-small); }
+.account-status { font-size: var(--text-size-tiny); }
+.account-disconnect {
+  justify-self: end;
+  padding: calc(var(--space) * 0.75) calc(var(--space) * 1.75);
+  gap: calc(var(--space) * 1);
+  background: transparent;
+  color: var(--rail-negative);
+  border: var(--border-width) solid var(--rail-negative);
+  border-radius: var(--radius-small);
+  font-size: var(--text-size-tiny);
+  box-shadow: none;
+}
+.account-disconnect:hover:not(:disabled) { background: var(--negative); color: var(--negative-text); border-color: var(--negative); }
 
 /* "Always approve" — a THIRD choice, and deliberately not styled as a primary
    one: it is the only button here that outlives this turn. */

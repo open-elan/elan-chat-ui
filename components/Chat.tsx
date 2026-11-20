@@ -35,6 +35,7 @@ import { Approvals } from "./Approvals";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { Markdown } from "./Markdown";
 import { Said } from "./Said";
+import { Surface } from "./Surface";
 import { Tools } from "./Tools";
 import { toolsIn } from "@/lib/tools";
 import { conversations } from "@/lib/sessions";
@@ -60,6 +61,8 @@ interface Turn {
   /** The liveness label still standing, or "". */
   status: string;
   ended: boolean;
+  /** MCP App views the agent showed this turn, in order. */
+  surfaces: AgentEvent[];
 }
 
 /**
@@ -121,7 +124,7 @@ function fold(events: readonly AgentEvent[]): Turn[] {
         // same invocation; anything looking up the run by this must still
         // find it.
         invocationId: event.invocation_id, said: "", replied: "", author: "",
-        failure: "", status: "", ended: false,
+        failure: "", status: "", ended: false, surfaces: [],
       });
     }
     const turn = byRun.get(id)!;
@@ -146,6 +149,11 @@ function fold(events: readonly AgentEvent[]): Turn[] {
         turn.status = String(payload["label"] ?? "");
         break;
       }
+      case "surface":
+        // AN MCP APP VIEW: a tool that declares a `ui://` view, read by the
+        // platform and sent beside its result. Drawn in a sandboxed frame.
+        turn.surfaces.push(event);
+        break;
       case "error":
         turn.failure = textOf(event) || "the run failed";
         turn.ended = true;
@@ -259,7 +267,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
         key: item.id, continued: false, paused: false,
         at: Number.POSITIVE_INFINITY,
         invocationId: item.id, said: item.said, replied: "", author: "",
-        failure: "", status: "", ended: false,
+        failure: "", status: "", ended: false, surfaces: [],
       }));
     // ── ORDERED BY TIME, NOT BY WHERE THEY CAME IN THE ARRAY ──────────────
     //
@@ -276,6 +284,13 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     ordered.sort((a, b) => a.at - b.at);
     return ordered;
   }, [allEvents, pending]);
+
+  /** Each invocation's latest turn — the one its tool calls are drawn on. */
+  const latestTurnOf = useMemo(() => {
+    const latest = new Map<string, string>();
+    for (const turn of turns) latest.set(turn.invocationId, turn.key || turn.said);
+    return latest;
+  }, [turns]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
@@ -373,6 +388,23 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
                 link. Plain text apart from that — see `Said`. */}
             {turn.said && <Said text={turn.said} sessionId={sessionId} />}
 
+            {/* WHAT IT IS DOING, AS IT HAPPENS: each tool call the moment
+                its event arrives, folded to one line once the turn ends. On
+                the invocation's LATEST turn, because a call made before a
+                pause is answered after it — the same call id, in the next
+                segment — and splitting them would leave one row waiting for
+                ever. */}
+            {latestTurnOf.get(turn.invocationId) === (turn.key || turn.said) && (
+              <Tools used={toolsIn(allEvents, turn.invocationId)}
+                     live={!turn.ended && !turn.failure} paused={turn.paused} />
+            )}
+
+            {/* VIEWS BEFORE THE WORDS, in the order they happened: an agent
+                that shows and then tells calls the view's tool first. */}
+            {turn.surfaces.map((surface) => (
+              <Surface key={`${surface.invocation_id}:${surface.seq}`} event={surface} />
+            ))}
+
             {turn.replied && (
               <div className="theirs">
                 <span className="author">{turn.author || agent}</span>
@@ -381,12 +413,6 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
                 <Markdown>{turn.replied}</Markdown>
               </div>
             )}
-
-            {/* WHAT IT DID, collapsed. Rendered after the reply because the
-                answer is the point and the tools are the evidence — and only
-                once the turn has settled, so the list does not grow under the
-                reader's eyes while the agent is still working. */}
-            {turn.ended && <Tools used={toolsIn(allEvents, turn.invocationId)} />}
 
             {/* LIVENESS, from the `typing` events. The label is the plugin's
                 own sentence; the dots are ours. */}
