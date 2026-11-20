@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "elan-sdk": "^0.2.0",
+    "elan-sdk": "^0.2.1",
     "lucide-react": "1.49.0",
     "next": "^16.4.3",
     "react": "^19.0.0",

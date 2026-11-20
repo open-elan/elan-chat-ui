@@ -3,14 +3,16 @@
 /**
  * What a paused run is waiting for, and how to answer it.
  *
- * ── THREE KINDS OF PAUSE, THREE DIFFERENT ANSWERS ────────────────────────────
+ * ── FOUR KINDS OF PAUSE, FOUR DIFFERENT ANSWERS ──────────────────────────────
  *
  *   input         a workflow node wants a VALUE      → resume with a payload
  *   confirmation  a person must approve a tool call  → decide the BATCH
  *   tool          an external system owes a RESULT   → your backend submits it
+ *   connection    a tool needs the person's account   → they sign in there;
+ *                 at a third party (ADR-0260)           the run resumes ITSELF
  *
  * Sending somebody to the wrong one costs them the afternoon, so the card asks
- * which kind it is rather than offering one pair of buttons for all three.
+ * which kind it is rather than offering one pair of buttons for all of them.
  *
  * ── A PAUSED RUN EMITS TWO `paused` EVENTS AND NO `finished` AT ALL ───────────
  *
@@ -25,9 +27,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AgentEvent } from "elan-sdk";
+import {
+  CONNECTION_INTERRUPT_KIND,
+  type AgentEvent,
+  type ConnectionPause,
+} from "elan-sdk";
 
 import { permissionsChanged } from "@/lib/changed";
+import { Connect } from "./Connect";
 
 /** The payload key that marks the engine's own terminal pause. */
 const PAUSE_IS_TERMINAL = "interrupt_kind";
@@ -100,6 +107,9 @@ interface Waiting {
   kind: string;
   message: string;
   interruptId: string;
+  /** The account to connect, on a `connection` pause: its name and the
+   *  attempt's link, which opens only with this person's ticket. */
+  connection: ConnectionPause | null;
 }
 
 interface Batch {
@@ -164,6 +174,7 @@ function pauseIn(events: readonly AgentEvent[], invocationId: string): Waiting |
       // client reading the last event it saw would otherwise show fallback copy.
       message: String(payload["message"] ?? ""),
       interruptId,
+      connection: (payload["connection"] as ConnectionPause | undefined) ?? null,
     };
   }
   return null;
@@ -365,6 +376,10 @@ export function Approvals({
         <span className="pause-kind">{waiting.kind || "paused"}</span>
         {waiting.message || "This run is waiting."}
       </p>
+
+      {waiting.kind === CONNECTION_INTERRUPT_KIND && waiting.connection && (
+        <Connect connection={waiting.connection} />
+      )}
 
       {waiting.kind === "input" && (
         <div className="pause-act">

@@ -188,7 +188,8 @@ the socket holding your ticket. The kinds this app reads include:
 | `queued` | The turn exists; the echo lends it its text. |
 | `started` | Carries the message that began the run, so your turn is in the stream too. |
 | `typing` | Its `label` ("Agent is searching unpaid invoices…") becomes the liveness line. |
-| `tool_call` / `tool_result` | Paired on the call id and shown as "Used …" under the reply. |
+| `tool_call` / `tool_result` | Paired on the call id and shown AS THEY ARRIVE — a spinner per running call, a check per result — then folded into "Used …" once the turn ends. |
+| `surface` | An MCP App view: the tool's own HTML, drawn in a sandboxed frame above the reply. |
 | `content` | The reply. Text is at `payload.content.parts[*].text`, joined by the SDK's `textOf`. |
 | `finished` / `error` | The turn is settled. |
 | `paused` | The run stopped to wait for somebody. See [Pauses and approvals](#pauses-and-approvals). |
@@ -348,15 +349,29 @@ phrasing and a translation has somewhere to live. It deliberately emits no
 already mean clear; the fold walks events in order for exactly that reason, so
 the indicator clears when the agent speaks and returns when it goes quiet.
 
-**A settled turn shows what the agent did.** `tool_call` and `tool_result`
+**A turn shows what the agent is doing, as it does it.** `tool_call` and `tool_result`
 events carry ADK's own `function_call` / `function_response` parts, so
 [`lib/tools.ts`](../lib/tools.ts) pairs them **on the call id and never on
 position** — one turn can raise several calls, they can return out of order, and
-a confirmed tool's result arrives on the far side of a pause. Collapsed into
-"Used search_invoices, fetch_pdf" with a `<details>`, because the answer is the
-point and the arguments are the evidence. A call with no result yet reads
-"still outstanding" rather than as a failure: a long-running tool is answered by
-a system, possibly days later.
+a confirmed tool's result arrives on the far side of a pause. While the turn
+runs, each call is a row the moment its event arrives — a spinner while it
+runs, a check when its result does — because ten silent seconds of searching
+reads as broken. Once the turn ends the rows fold into "Used Search invoices,
+Fetch pdf" with a `<details>`, because then the answer is the point and the
+arguments are the evidence. A call with no result yet is never shown as a
+failure: on a paused turn it shows a clock, because a long-running tool is
+answered by a system, possibly days later, and a confirmation by a person.
+
+The rows sit on the invocation's **latest** turn. A call made before a pause is
+answered after it — the same call id, in the next segment — so drawing tools
+per segment would leave one row waiting for ever and give the other no name.
+
+**MCP App views are drawn in a sandboxed frame.** A tool that declares a
+`ui://` view (the MCP Apps extension) arrives as a `surface` event carrying the
+server's own HTML and the call's arguments and result. [`McpApp`](../components/McpApp.tsx)
+hosts it with `sandbox="allow-scripts"` and never `allow-same-origin`, injects
+the CSP the server declared, and checks every message against the frame's own
+window. It is the platform console's host, ported.
 
 Verified against realistic events: results delivered out of order still land on
 the right call, an unanswered call is reported as outstanding, a result whose
@@ -385,15 +400,16 @@ attachment names, which become download links — see
 
 ## Pauses and approvals
 
-A run can stop to wait for somebody. There are three kinds of pause, and each
+A run can stop to wait for somebody. There are four kinds of pause, and each
 needs a different answer, so [`Approvals.tsx`](../components/Approvals.tsx)
-asks which kind it is rather than offering one pair of buttons for all three:
+asks which kind it is rather than offering one pair of buttons for all of them:
 
 | Kind | What is waiting | How it is answered |
 |---|---|---|
 | `input` | A workflow node wants a **value** | `POST /api/resume` with a `payload` |
 | `confirmation` | A person must approve a **tool call** | `POST /api/approvals`, which decides the whole **batch** |
 | `tool` | An external system owes a **result** | Not from this UI: your backend calls `elan.tools.submit(callId, …)`, and a deadline abandons the call if nobody does |
+| `connection` | A tool needs the person's **own account at a third party**, which they have not connected | They sign in there: *Connect* opens `connectUrl(connection, ticket)` in a small window with a fresh ticket from `/api/ticket`, and the card shows a loader while that window is open. The platform resumes the run by itself once they return. Nothing is sent from this UI |
 
 **A paused run emits two `paused` events and no `finished` at all.** The pause
 *is* where the run stopped, deliberately: a human approval can outlast any ack
@@ -401,6 +417,34 @@ deadline. Only the engine's synthesised pause carries `interrupt_kind` — ADK's
 own names no interrupt — and a `content` event can sit *between* the two, so
 "the last paused" is not even a positional rule. `Approvals` discriminates on
 that payload key.
+
+### Connected accounts
+
+When an agent names a connection the person has not connected yet, the run
+pauses with `interrupt_kind: connection` and `payload.connection` — the
+account's name and a sign-in link. The link opens only with **the ticket of
+the person it was made for**, so the button asks `/api/ticket` for a fresh one
+rather than reusing the socket's: a link that leaks connects nobody's account
+to anybody else's run.
+
+- **A small window, opened inside the click**, before the ticket is fetched,
+  because a popup blocker allows a window the click itself opened and blocks
+  one opened after a fetch. Its `opener` is cut before it navigates, and the
+  platform's completion page closes it once the person is connected.
+- **The card goes by itself.** The provider returns the person to the
+  platform, which resumes the run; the resumed events carry the pause's
+  interrupt id as their `segment`, which is what every answered pause is
+  recognised by.
+- **Connect once.** Later runs are handed the person's token and never ask
+  again, until the provider refuses a refresh.
+- **Signing out is the rail's *Connected accounts* panel.** It lists what the
+  person has connected and disconnects one through
+  [`/api/connections`](../app/api/connections/route.ts) — a server route,
+  because a ticket can neither list nor disconnect, and keyed on the signed
+  cookie so nobody can disconnect anybody else. Disconnecting deletes the
+  tokens on the platform; revoking the app at the provider is the person's own.
+
+See the platform's *Connected accounts* guide for declaring a connection.
 
 ### Confirmations
 

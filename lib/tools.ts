@@ -41,7 +41,22 @@ function parts(event: AgentEvent): Record<string, unknown>[] {
   return Array.isArray(list) ? (list as Record<string, unknown>[]) : [];
 }
 
-/** Every tool this run used, in the order it called them. */
+/**
+ * The result a call carries while a person decides whether it may run — the
+ * platform's `agentkit_core.approvals.AWAITING`. The platform answers an
+ * asked-about MCP tool with it, and an approval tool returns it first; the
+ * real result follows under the SAME call id once the call is decided.
+ */
+const AWAITING_APPROVAL = "awaiting_approval";
+
+function awaiting(result: unknown): boolean {
+  return Boolean(result) && typeof result === "object"
+    && (result as Record<string, unknown>)["status"] === AWAITING_APPROVAL;
+}
+
+/** Every tool this run used, in the order it called them. A call still
+ *  waiting on a person reads as outstanding: its placeholder is not what the
+ *  tool did. */
 export function toolsIn(
   events: readonly AgentEvent[],
   invocationId: string,
@@ -77,8 +92,11 @@ export function toolsIn(
           answer["id"] ?? `unkeyed:${String(answer["name"] ?? "")}`,
         );
         const held = byCall.get(callId);
+        const response = answer["response"];
+        // A PLACEHOLDER NEVER REPLACES A REAL ANSWER, and never counts as one.
+        if (awaiting(response) && held?.result !== undefined) continue;
         if (held) {
-          byCall.set(callId, { ...held, result: answer["response"] });
+          byCall.set(callId, { ...held, result: awaiting(response) ? undefined : response });
         } else {
           // A result with no call in view. Happens when the call is in a
           // segment this reader does not have — a confirmed tool resumes under
@@ -88,7 +106,7 @@ export function toolsIn(
             callId,
             name: String(answer["name"] ?? "a tool"),
             args: undefined,
-            result: answer["response"],
+            result: awaiting(response) ? undefined : response,
           });
         }
       }
