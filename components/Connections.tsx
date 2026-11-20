@@ -22,6 +22,13 @@ import { KeyRound, Unplug } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ConnectionView } from "elan-sdk";
 
+/** "20 Nov, 20:58" — short enough for the rail. */
+function day(iso: string): string {
+  return new Date(iso).toLocaleString([], {
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+}
+
 export function Connections() {
   const [rows, setRows] = useState<ConnectionView[] | null>(null);
   const [failure, setFailure] = useState("");
@@ -99,12 +106,6 @@ export function Connections() {
                 <span className={`account-status ${row.status === "connected" ? "perm-allow" : "perm-capped"}`}>
                   {row.status === "connected" ? "Connected" : "Needs signing in again"}
                 </span>
-                <span className="perm-why">
-                  Since {new Date(row.connected_at).toLocaleDateString()}
-                  {row.last_used_at
-                    ? ` · last used ${new Date(row.last_used_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                    : ""}
-                </span>
               </div>
               <button
                 type="button"
@@ -116,6 +117,13 @@ export function Connections() {
                 <Unplug size={13} aria-hidden="true" />
                 {busy === row.name ? "…" : "Disconnect"}
               </button>
+              {/* ITS OWN ROW, under the name and the button: the rail is
+                  narrow, and squeezed between them this wrapped to three
+                  lines. */}
+              <span className="account-meta">
+                Since {day(row.connected_at)}
+                {row.last_used_at ? ` · last used ${day(row.last_used_at)}` : ""}
+              </span>
             </li>
           ))}
         </ul>
