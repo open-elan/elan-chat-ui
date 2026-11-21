@@ -30,6 +30,7 @@ import {
   type Resolved,
   type StoredPolicy,
 } from "@/lib/permissions";
+import { SECTION } from "@/lib/panel";
 
 interface Answer {
   slug: string;
@@ -181,7 +182,7 @@ export function Permissions() {
   // nothing" is a wrong answer where none is available.
   if (answer.declared === null) {
     return (
-      <details className="perms">
+      <details className="perms" name={SECTION}>
         <summary>Action settings</summary>
         <p className="perm-note">
           {answer.acting_tools === null
@@ -200,7 +201,7 @@ export function Permissions() {
   );
 
   return (
-    <details className="perms">
+    <details className="perms" name={SECTION}>
       <summary>
         Action settings
         <span className="perm-count"> · {rows.length}</span>

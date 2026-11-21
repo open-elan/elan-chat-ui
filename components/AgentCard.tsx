@@ -21,6 +21,7 @@
 import { useEffect, useState } from "react";
 import { dollars } from "elan-sdk";
 import type { ManifestFacts } from "elan-sdk";
+import { SECTION } from "@/lib/panel";
 
 interface Answer {
   slug: string;
@@ -97,7 +98,7 @@ export function AgentCard() {
   const recorded = Object.keys(m).length > 0;
 
   return (
-    <details className="card">
+    <details className="card" name={SECTION}>
       <summary>
         About this agent
         <span className="card-version"> · v{answer.version}</span>

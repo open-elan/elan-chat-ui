@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAgentEvents } from "elan-sdk/react";
 import { dollars, formatUsd, type StatementEntry, type Wallet as WalletRow } from "elan-sdk";
+import { SECTION } from "@/lib/panel";
 
 interface Answer {
   wallet: WalletRow | null;
@@ -138,7 +139,7 @@ export function Wallet({ sessionId }: { sessionId: string }) {
       )}
 
       {answer.entries.length > 0 && (
-        <details className="purse-statement">
+        <details className="purse-statement" name={SECTION}>
           <summary>
             Statement
             {answer.total > answer.entries.length && (
