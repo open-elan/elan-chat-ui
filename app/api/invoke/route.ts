@@ -29,6 +29,7 @@
 
 import { NextResponse } from "next/server";
 
+import { parse, securityContextOf } from "@/lib/credentials";
 import { elan, target } from "@/lib/elan";
 import { failed } from "@/lib/failure";
 import { read } from "@/lib/identity";
@@ -41,10 +42,16 @@ export async function POST(request: Request) {
 
   let text = "";
   let sessionId = "";
+  let credentials: ReturnType<typeof parse> = [];
   try {
-    const body = (await request.json()) as { text?: unknown; sessionId?: unknown };
+    const body = (await request.json()) as {
+      text?: unknown;
+      sessionId?: unknown;
+      credentials?: unknown;
+    };
     if (typeof body.text === "string") text = body.text.trim();
     if (typeof body.sessionId === "string") sessionId = body.sessionId;
+    credentials = parse(body.credentials);
   } catch {
     // Falls through to the checks below, which name the missing field.
   }
@@ -57,11 +64,19 @@ export async function POST(request: Request) {
   if (!sessionId) {
     return NextResponse.json({ error: "no sessionId" }, { status: 400 });
   }
+  if (typeof credentials === "string") {
+    return NextResponse.json({ error: credentials }, { status: 400 });
+  }
 
   try {
     const started = await elan().runtime.invoke(target(), text, {
       sessionId,
       endUserId: who.userId,
+      // THE PERSON'S OWN KEYS, as the run's security context (ADR-0249). The
+      // platform attaches each one only to the binding whose ToolAuth names
+      // it, holds it sealed for the run, and never writes it anywhere the
+      // conversation, the events or the model can see. Nothing here logs it.
+      ...(credentials.length > 0 ? { securityContext: securityContextOf(credentials) } : {}),
     });
     // 202, AND NOTHING HAS RUN. There is no reply in this response and there
     // is no route that would give one — it arrives on the browser's socket.

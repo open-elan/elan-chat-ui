@@ -21,6 +21,7 @@
 import { KeyRound, Unplug } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ConnectionView } from "elan-sdk";
+import { SECTION } from "@/lib/panel";
 
 /** "20 Nov, 20:58" — short enough for the rail. */
 function day(iso: string): string {
@@ -85,7 +86,7 @@ export function Connections() {
   if (rows === null) return null;
 
   return (
-    <details className="perms">
+    <details className="perms" name={SECTION}>
       <summary>Connected accounts</summary>
       {rows.length === 0 ? (
         <p className="perm-note">

@@ -857,13 +857,89 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
   .spin { animation-duration: 2.4s; }
 }
 
+/* ── the Details panel, on the right ────────────────────────────────────────
+   THE RAIL'S PALETTE, MIRRORED: the conversations frame the chat on the left
+   and the person and the agent on the right, so both sides read as one frame
+   and every section kept the colours it was drawn in. */
+.workspace.with-details { grid-template-columns: 16rem minmax(0, 1fr) 18rem; }
+
+.details {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--rail);
+  color: var(--rail-text);
+  border-left: var(--border-width) solid var(--rail-border);
+}
+/* `hidden` would lose to the `display: flex` above without this. */
+.details[hidden] { display: none; }
+.details-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--space) * 2);
+  padding: calc(var(--space) * 3) calc(var(--space) * 3) calc(var(--space) * 3) calc(var(--space) * 4);
+  font-size: var(--text-size-tiny);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-display);
+  color: var(--rail-muted);
+}
+.details-close {
+  padding: calc(var(--space) * 1);
+  background: transparent;
+  color: var(--rail-muted);
+  box-shadow: none;
+}
+.details-close:hover:not(:disabled) { color: var(--rail-text); background: var(--rail-wash); box-shadow: none; }
+.details-close:focus-visible { outline-color: var(--rail-marker); }
+/* THE ONLY SCROLLING PART, like the rail's body: the head stays put. Each
+   section draws its own top border, so the first one is the divider. */
+.details-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rail-border) transparent;
+}
+
+/* The header button that opens it: the theme switch's single-button cousin,
+   pressed while the panel shows. */
+.details-toggle {
+  width: calc(var(--space) * 8);
+  height: calc(var(--space) * 7.5);
+  padding: 0;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border: var(--border-width) solid var(--border);
+  box-shadow: none;
+}
+.details-toggle:hover:not(:disabled) { color: var(--text); box-shadow: none; }
+.details-toggle[aria-pressed="true"] { background: var(--surface-raised); color: var(--text); }
+
+/* BELOW A WIDE SCREEN IT SLIDES OVER THE CONVERSATION instead of taking a
+   third column out of it — 18rem from a laptop's chat is a quarter of it. */
+@media (max-width: 64rem) {
+  .workspace.with-details { grid-template-columns: 16rem minmax(0, 1fr); }
+  .details {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 20;
+    width: min(20rem, 100vw);
+    box-shadow: var(--shadow-overlay);
+  }
+}
+
 /* ── narrow screens ─────────────────────────────────────────────────────── */
 
 /* A 16rem column pinned to the full height of a phone leaves almost nothing
    for the conversation, so below this width the rail goes on top, keeps a
    short scroll of its own, and drops the identity block. */
 @media (max-width: 45rem) {
-  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .workspace,
+  .workspace.with-details { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .rail { border-right: 0; border-bottom: var(--border-width) solid var(--rail-border); max-height: 34dvh; }
   .whoami { display: none; }
   .chat-head { padding-inline: calc(var(--space) * 4); }
@@ -1171,6 +1247,103 @@ button.reject:hover:not(:disabled) { box-shadow: inset 0 0 0 100vmax var(--eleva
   box-shadow: none;
 }
 .account-disconnect:hover:not(:disabled) { background: var(--negative); color: var(--negative-text); border-color: var(--negative); }
+
+/* ── YOUR KEYS: the same tiles, with Edit beside a red Remove ───────────── */
+.account-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: calc(var(--space) * 1);
+}
+.account-edit,
+.credential-add {
+  background: transparent;
+  color: var(--rail-muted);
+  border: var(--border-width) solid var(--rail-border);
+  border-radius: var(--radius-small);
+  font-size: var(--text-size-tiny);
+  box-shadow: none;
+}
+.account-edit { padding: calc(var(--space) * 0.75); }
+.account-edit:hover:not(:disabled),
+.credential-add:hover:not(:disabled) {
+  color: var(--rail-text);
+  border-color: var(--rail-muted);
+  box-shadow: none;
+}
+.credential-add {
+  margin-top: calc(var(--space) * 2);
+  padding: calc(var(--space) * 0.75) calc(var(--space) * 1.75);
+  gap: calc(var(--space) * 1);
+}
+
+/* ── THE DIALOG a key is written in ─────────────────────────────────────────
+   `<dialog>` opened with showModal(): the browser supplies the backdrop, the
+   focus trap and Escape. Sized for five stacked fields, never wider than the
+   screen less a 16px gutter each side. */
+.sheet {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-overlay);
+  color: var(--text);
+  box-shadow: var(--shadow-overlay);
+}
+.sheet::backdrop { background: var(--scrim); }
+.sheet-body {
+  display: grid;
+  gap: calc(var(--space) * 3.5);
+  padding: calc(var(--space) * 5);
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--space) * 2);
+}
+.sheet-head h2 { margin: 0; font-size: calc(var(--text-size) * 1.12); }
+.sheet-close {
+  padding: calc(var(--space) * 1);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.sheet-close:hover:not(:disabled) { color: var(--text); box-shadow: inset 0 0 0 100vmax var(--elevate-1); }
+/* A REFUSAL STAYS until the next try: the field it names is still the thing
+   to fix. On the soft negative ground, the words at full contrast. */
+.sheet-refused {
+  margin: 0;
+  padding: calc(var(--space) * 2.5) calc(var(--space) * 3);
+  background: var(--negative-soft);
+  border-left: 3px solid var(--negative);
+  border-radius: var(--radius-small);
+  font-size: var(--text-size-small);
+}
+.field {
+  display: grid;
+  gap: calc(var(--space) * 1.25);
+  font-size: var(--text-size-small);
+  font-weight: 560;
+}
+.field small { color: var(--text-muted); font-size: var(--text-size-tiny); font-weight: 400; }
+.field select {
+  padding: calc(var(--space) * 2) calc(var(--space) * 3);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+}
+.field input { font-weight: 400; }
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: calc(var(--space) * 2);
+  margin-top: calc(var(--space) * 1);
+}
 
 /* "Always approve" — a THIRD choice, and deliberately not styled as a primary
    one: it is the only button here that outlives this turn. */

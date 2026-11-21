@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentEvents } from "elan-sdk/react";
-import { LoaderCircle, Paperclip, SendHorizontal, X } from "lucide-react";
+import { LoaderCircle, PanelRight, Paperclip, SendHorizontal, X } from "lucide-react";
 import { authorOf, textOf, type AgentEvent } from "elan-sdk";
 
 import { Approvals } from "./Approvals";
@@ -38,6 +38,7 @@ import { Said } from "./Said";
 import { Surface } from "./Surface";
 import { Tools } from "./Tools";
 import { toolsIn } from "@/lib/tools";
+import type { Credential } from "@/lib/credentials";
 import { conversations } from "@/lib/sessions";
 import { announce, downloadHref, upload, type Attachment } from "@/lib/upload";
 
@@ -175,7 +176,21 @@ function fold(events: readonly AgentEvent[]): Turn[] {
   return order.map((id) => byRun.get(id)!);
 }
 
-export function Chat({ agent, sessionId }: { agent: string; sessionId: string }) {
+export function Chat({
+  agent,
+  sessionId,
+  credentials,
+  details,
+  onDetails,
+}: {
+  agent: string;
+  sessionId: string;
+  /** The person's own keys, sent with every message (`lib/credentials.ts`). */
+  credentials: Credential[];
+  /** Whether the Details panel is showing, and the way to toggle it. */
+  details: boolean;
+  onDetails: () => void;
+}) {
   const { events, state, error } = useAgentEvents(sessionId);
   const [history, setHistory] = useState<AgentEvent[]>([]);
   const [unavailable, setUnavailable] = useState("");
@@ -335,7 +350,14 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
       const answer = await fetch("/api/invoke", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, sessionId }),
+        // THE KEYS GO TO THIS APP'S ROUTE, NOT THE PLATFORM: a ticket cannot
+        // start a run, so the server hands them over as the invocation's
+        // security context.
+        body: JSON.stringify({
+          text,
+          sessionId,
+          ...(credentials.length > 0 ? { credentials } : {}),
+        }),
       });
       const body = (await answer.json()) as { invocation_id?: string; error?: string };
       if (!answer.ok) {
@@ -354,7 +376,7 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
     } finally {
       setSending(false);
     }
-  }, [draft, attached, sending, sessionId]);
+  }, [draft, attached, sending, sessionId, credentials]);
 
   // THE COMPOSER WAITS FOR THE SOCKET, and this is the ordering the whole
   // protocol turns on. Pub/Sub discards a message published to a topic with no
@@ -373,6 +395,17 @@ export function Chat({ agent, sessionId }: { agent: string; sessionId: string })
             {state}
           </span>
           <ThemeSwitch />
+          {/* LAST IN THE ROW, at the edge the panel opens from. */}
+          <button
+            type="button"
+            className="details-toggle"
+            aria-pressed={details}
+            aria-label={details ? "Hide details" : "Show details"}
+            title={details ? "Hide details" : "Show details"}
+            onClick={onDetails}
+          >
+            <PanelRight size={16} aria-hidden="true" />
+          </button>
         </div>
       </header>
 

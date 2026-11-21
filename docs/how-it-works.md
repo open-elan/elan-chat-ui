@@ -15,6 +15,7 @@ of `<p>` tags. If you take one thing from it, take the split.
 - [Conversations, history and liveness](#conversations-history-and-liveness)
 - [Pauses and approvals](#pauses-and-approvals)
 - [Attachments](#attachments)
+- [Your keys: credentials the person brings](#your-keys-credentials-the-person-brings)
 - [Permissions: what the agent may do on its own](#permissions-what-the-agent-may-do-on-its-own)
 - [Credits and statement](#credits-and-statement)
 - [Errors and status codes](#errors-and-status-codes)
@@ -200,7 +201,7 @@ that appears in both becomes one turn, and recorded runs come back from
 `/api/history` already in the stream's own shape, so there is one renderer
 rather than two that disagree.
 
-**10. The rail catches up.** When a run reaches a terminal event, the
+**10. The Details panel catches up.** When a run reaches a terminal event, the
 [`Wallet`](../components/Wallet.tsx) panel reads
 [`/api/wallet`](../app/api/wallet/route.ts) again, so the balance and statement
 reflect what the turn cost.
@@ -437,7 +438,7 @@ to anybody else's run.
   recognised by.
 - **Connect once.** Later runs are handed the person's token and never ask
   again, until the provider refuses a refresh.
-- **Signing out is the rail's *Connected accounts* panel.** It lists what the
+- **Signing out is the Details panel's *Connected accounts* section.** It lists what the
   person has connected and disconnects one through
   [`/api/connections`](../app/api/connections/route.ts) — a server route,
   because a ticket can neither list nor disconnect, and keyed on the signed
@@ -618,9 +619,41 @@ never attached".
 
 ---
 
+## Your keys: credentials the person brings
+
+Some agents call a service with **the person's own key** — a maps key, a token
+for their notes — rather than an account the platform signs them in to. The
+Details panel's **Your keys** section takes them: **+ Credential** opens a
+dialog for a name, a kind (a bearer token or an API key in a header), the
+value and, optionally, the one URL it may be sent to. Each one shows as a tile
+with Edit and Remove, and the section's title counts them.
+
+- **They ride every message.** The browser sends them to this app's own
+  [`/api/invoke`](../app/api/invoke/route.ts), which hands them to the platform
+  as the invocation's **security context**. That is the only way in: a ticket
+  cannot start a run, so the browser could not send them to the platform
+  directly.
+- **The platform sends each one only where the agent names it** — to the MCP
+  binding whose `ToolAuth` uses that name, and only within its URL when one is
+  set. A credential no binding names is accepted and never sent anywhere. It
+  is held sealed for the run and never reaches the conversation, an event or
+  the model.
+- **Kept in this tab and nowhere else.** React state, not `localStorage`: a
+  key in storage outlives the tab, is readable by every script on the origin,
+  and is still there for the next person at a shared computer. A reload
+  forgets them.
+- **Checked twice, decided once.** The dialog refuses what the platform would
+  (the name rule, a name added twice, a header that shapes the request, a URL
+  that is not https) and names the field; the route checks only the shape,
+  because a request body is anybody's; the platform decides.
+
+The rules are in [`lib/credentials.ts`](../lib/credentials.ts), shared by the
+dialog and the route. See the platform's *Security context* guide for the
+agent side: `Credentials(caller=[...])` and `ToolAuth(credential=...)`.
+
 ## Permissions: what the agent may do on its own
 
-The rail carries two panels about the agent itself — **About this agent**
+The Details panel carries two sections about the agent itself — **About this agent**
 ([`AgentCard.tsx`](../components/AgentCard.tsx)) and **Action settings**
 ([`Permissions.tsx`](../components/Permissions.tsx)). The second is the
 interesting one, and it is the part of this example most likely to be built
@@ -839,7 +872,7 @@ components are a thin reading of an event stream.
 | [`app/layout.tsx`](../app/layout.tsx) | The shell, and an inline script that applies the saved theme before first paint. |
 | [`app/api/session`](../app/api/session/route.ts) | Claim a demo identity. **The one route to replace.** |
 | [`app/api/ticket`](../app/api/ticket/route.ts) | Mint the browser's ~300s stream credential, for the cookie's user only. |
-| [`app/api/invoke`](../app/api/invoke/route.ts) | Start a run, naming the end user. Answers `202`; the reply comes on the socket. |
+| [`app/api/invoke`](../app/api/invoke/route.ts) | Start a run, naming the end user and carrying their keys as the security context. Answers `202`; the reply comes on the socket. |
 | [`app/api/resume`](../app/api/resume/route.ts) | Answer a workflow input pause with data. |
 | [`app/api/approvals`](../app/api/approvals/route.ts) | List what a run is waiting on, and decide a whole batch, after proving ownership. |
 | [`app/api/history`](../app/api/history/route.ts) | The durable read, with the ownership check that must precede it. |
@@ -854,14 +887,16 @@ components are a thin reading of an event stream.
 |---|---|
 | [`components/Provider.tsx`](../components/Provider.tsx) | The one socket, and the stable ticket supplier. |
 | [`components/SignIn.tsx`](../components/SignIn.tsx) | The demo sign-in card. **Throw away in a real app.** |
-| [`components/Workspace.tsx`](../components/Workspace.tsx) | The rail and the transcript, and which conversation is active. |
+| [`components/Workspace.tsx`](../components/Workspace.tsx) | The three columns — conversations, the transcript, the Details panel (open by default; over the transcript on a narrow screen) — and which conversation is active. Holds the person's keys, so they outlive a conversation switch. |
 | [`components/Sessions.tsx`](../components/Sessions.tsx) | The conversation list in the rail. |
 | [`components/Chat.tsx`](../components/Chat.tsx) | One conversation: history + live events folded into turns, the composer, attachments. |
 | [`components/Said.tsx`](../components/Said.tsx) | Your own message, as plain text, with attachment names as download links. |
 | [`components/Markdown.tsx`](../components/Markdown.tsx) | The agent's reply, as markdown, with raw HTML not rendered. |
 | [`components/Tools.tsx`](../components/Tools.tsx) | What the agent did in a turn. |
 | [`components/Approvals.tsx`](../components/Approvals.tsx) | The three kinds of pause, and the different call each needs. |
-| [`components/AgentCard.tsx`](../components/AgentCard.tsx), [`Permissions.tsx`](../components/Permissions.tsx) | The two rail panels about the agent itself. |
+| [`components/AgentCard.tsx`](../components/AgentCard.tsx), [`Permissions.tsx`](../components/Permissions.tsx) | The two Details sections about the agent itself. |
+| [`components/Connections.tsx`](../components/Connections.tsx) | The accounts the platform signed the person in to, and Disconnect. |
+| [`components/Credentials.tsx`](../components/Credentials.tsx) | Your keys: the tiles, and the dialog a key is written in. |
 | [`components/Wallet.tsx`](../components/Wallet.tsx) | Balance, hold and statement, refreshed after each run. |
 | [`components/ThemeSwitch.tsx`](../components/ThemeSwitch.tsx) | System, light or dark. |
 
@@ -873,6 +908,8 @@ components are a thin reading of an event stream.
 | [`lib/tools.ts`](../lib/tools.ts) | Pairs `function_call` with `function_response` on the call id. |
 | [`lib/permissions.ts`](../lib/permissions.ts) | Folds the declaration and the stored grants into one row per tool. |
 | [`lib/changed.ts`](../lib/changed.ts) | One event name, so the approval card and the settings panel agree. |
+| [`lib/credentials.ts`](../lib/credentials.ts) | A credential's rules, its one-line description, and the security context it becomes. Shared by the dialog and `/api/invoke`. |
+| [`lib/panel.ts`](../lib/panel.ts) | The one `name` every Details section's `<details>` carries, which makes the browser open them one at a time. |
 | [`lib/upload.ts`](../lib/upload.ts) | Authorise, then PUT; `announce()` and its inverse `attachedIn()`. Names the CORS cause. |
 | [`lib/theme.ts`](../lib/theme.ts) | The saved theme choice, applied as `data-theme` on `<html>`. |
 
